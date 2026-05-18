@@ -1,0 +1,13 @@
+import {
+  "moonbitlang/async/types" @async/types,
+}
+
+import {
+  "moonbitlang/async/stdio" @async/stdio,
+} for "test"
+
+supported_targets = "native"
+
+options(
+  "native-stub": [ "isatty.c" ],
+)
