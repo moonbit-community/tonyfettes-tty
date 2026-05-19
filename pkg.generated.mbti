@@ -1,0 +1,18 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "tonyfettes/tty"
+
+// Values
+pub fn isatty(Int) -> Bool raise TtyError
+
+// Errors
+type TtyError
+
+// Types and methods
+type Tty
+pub fn Tty::close(Self) -> Unit
+pub async fn Tty::open() -> Self
+
+// Type aliases
+
+// Traits
+
