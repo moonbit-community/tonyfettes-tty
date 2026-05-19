@@ -2,35 +2,56 @@
 const Esc : Byte = b'\x1b'
 
 ///|
-fn decimal_len(n : Int) -> Int {
-  let mut value = n
-  let mut len = 1
-  while value >= 10 {
-    value = value / 10
-    len += 1
+fn count_decimal_digits(n : Int) -> Int {
+  guard n >= 0 else {
+    abort(
+      "@tonyfettes/tty/vt.count_decimal_digits: n should be greater or equal to 0",
+    )
   }
-  len
+  for len = 1, val = n; val >= 10; val = val / 10, len = len + 1 {
+
+  } nobreak {
+    len
+  }
 }
 
 ///|
-fn write_decimal(buf : FixedArray[Byte], offset : Int, n : Int) -> Int {
-  let len = decimal_len(n)
+fn write_decimal_digits(
+  buf : FixedArray[Byte],
+  n : Int,
+  offset? : Int = 0,
+  length? : Int = count_decimal_digits(n),
+) -> Int {
   let mut value = n
-  for i in 0..<len {
-    let index = offset + len - i - 1
+  for i in 0..<length {
+    let index = offset + length - i - 1
     buf[index] = (value % 10 + b'0'.to_int()).to_byte()
     value = value / 10
   }
-  offset + len
+  offset + length
 }
 
 ///|
 fn csi1(n : Int, final_byte : Byte) -> Bytes {
-  let len = decimal_len(n)
+  let len = count_decimal_digits(n)
   let buf : FixedArray[Byte] = FixedArray::make(3 + len, 0)
   buf[0] = Esc
   buf[1] = b'['
-  let offset = write_decimal(buf, 2, n)
+  let offset = write_decimal_digits(buf, offset=2, length=len, n)
+  buf[offset] = final_byte
+  buf.unsafe_reinterpret_as_bytes()
+}
+
+///|
+fn csi2(n1 : Int, n2 : Int, final_byte : Byte) -> Bytes {
+  let len1 = count_decimal_digits(n1)
+  let len2 = count_decimal_digits(n2)
+  let buf : FixedArray[Byte] = FixedArray::make(4 + len1 + len2, 0)
+  buf[0] = Esc
+  buf[1] = b'['
+  let offset = write_decimal_digits(buf, offset=2, length=len1, n1)
+  buf[offset] = b';'
+  let offset = write_decimal_digits(buf, offset=offset + 1, length=len2, n2)
   buf[offset] = final_byte
   buf.unsafe_reinterpret_as_bytes()
 }
