@@ -8,6 +8,14 @@ enum Input {
 pub let stdin : Input = Stdio(@async/stdio.stdin)
 
 ///|
+pub fn Input::fd(self : Input) -> @async/types.Fd {
+  match self {
+    File(file) => file.fd()
+    Stdio(stdin) => stdin.fd()
+  }
+}
+
+///|
 pub fn Input::close(self : Input) -> Unit {
   match self {
     File(file) => file.close()
