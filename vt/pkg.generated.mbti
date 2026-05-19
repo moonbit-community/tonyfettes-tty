@@ -20,6 +20,12 @@ pub fn cursor_up(Int) -> Bytes
 
 pub let enter_alt_screen : Bytes
 
+pub let erase_line_all : Bytes
+
+pub let erase_line_left : Bytes
+
+pub let erase_line_right : Bytes
+
 pub let hide_cursor : Bytes
 
 pub let leave_alt_screen : Bytes
