@@ -8,11 +8,11 @@ small public event model and validates common terminal key sequences in
 
 ## Status
 
-Active.
+Done.
 
-The common-key implementation has landed. This plan remains active for manual
-terminal validation and follow-up policy decisions such as UTF-8 text and
-bracketed paste.
+The common-key implementation has landed and manual terminal validation has
+passed. Follow-up policy decisions such as UTF-8 text and bracketed paste remain
+tracked by separate board items.
 
 ## Context And Decisions
 
@@ -34,6 +34,12 @@ bracketed paste.
 - `ESC [` is ambiguous: it can be Alt+`[` or the beginning of a CSI sequence.
   If no CSI body arrives before the ESC timeout, decode it as Alt+`[`. If any
   CSI body bytes have arrived, keep the timeout result as `Unknown`.
+- Future UTF-8 input work should decode valid terminal text without performing
+  Unicode grapheme segmentation in the low-level `input` package. If a
+  `Text(String)` event is added, it should document that the string is decoded
+  text, not a guaranteed grapheme cluster, display cell, or IME commit unit.
+- Grapheme-aware editing belongs in `cmd/input` experiments or a future
+  higher-level package, not in the byte-to-event decoder.
 
 ## References Or Standards
 
@@ -140,7 +146,11 @@ Partial validation on 2026-05-20:
 - `moon check cmd/input` passed.
 - `moon info` passed.
 
-Manual `moon run cmd/input` validation is still pending.
+Manual `moon run cmd/input` validation passed on 2026-05-20. Printable ASCII,
+Backspace, Enter, Escape timeout, cursor keys, function keys except F11, and
+available modifier-key sequences decoded as expected. F11 and Ctrl+arrow
+combinations were intercepted by the local terminal or system and did not reach
+the demo as terminal input.
 
 Follow-up audit on 2026-05-20:
 
@@ -163,5 +173,4 @@ Follow-up audit on 2026-05-20:
   `KeyEvent::{ code: Text, text: Some(...) }`.
 - Whether bracketed paste should be decoded by `input` or handled by a separate
   higher-level input package.
-- Whether `cmd/input` should remain ASCII-only for the line buffer until a
-  grapheme-aware editing plan exists.
+- How `IN-3` should model grapheme-aware editing once UTF-8 text events exist.
