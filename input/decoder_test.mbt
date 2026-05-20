@@ -32,6 +32,25 @@ async fn with_delayed_input(
 }
 
 ///|
+test "key modifier accessors" {
+  let modifiers = @input.KeyModifiers::new(
+    shift=true,
+    alt=true,
+    ctrl=true,
+    meta=true,
+  )
+  @debug.assert_eq(modifiers.shift(), true)
+  @debug.assert_eq(modifiers.alt(), true)
+  @debug.assert_eq(modifiers.ctrl(), true)
+  @debug.assert_eq(modifiers.meta(), true)
+  let none = @input.KeyModifiers::new()
+  @debug.assert_eq(none.shift(), false)
+  @debug.assert_eq(none.alt(), false)
+  @debug.assert_eq(none.ctrl(), false)
+  @debug.assert_eq(none.meta(), false)
+}
+
+///|
 async test "decode printable ascii" {
   with_input(b"aA", events => {
     @debug.assert_eq(
@@ -85,6 +104,28 @@ async test "decode invalid utf8 as unknown and leaves ascii buffered" {
 }
 
 ///|
+async test "decode invalid utf8 lead byte" {
+  with_input(b"\xffa", events => {
+    @debug.assert_eq(events.read_event(), @input.Unknown(b"\xff"))
+    @debug.assert_eq(
+      events.read_event(),
+      @input.Key(@input.KeyEvent::new(@input.Char('a'), text="a")),
+    )
+  })
+}
+
+///|
+async test "decode malformed utf8 sequence" {
+  with_input(b"\xe0\x80\x80a", events => {
+    @debug.assert_eq(events.read_event(), @input.Unknown(b"\xe0\x80\x80"))
+    @debug.assert_eq(
+      events.read_event(),
+      @input.Key(@input.KeyEvent::new(@input.Char('a'), text="a")),
+    )
+  })
+}
+
+///|
 async test "flush incomplete utf8 as unknown" {
   with_delayed_input(b"\xe4", b"", 50, events => {
     @debug.assert_eq(events.read_event(esc_timeout=10), @input.Unknown(b"\xe4"))
@@ -102,11 +143,90 @@ async test "flush escape key" {
 }
 
 ///|
+async test "decode escape followed by non printable byte" {
+  with_input(b"\x1b\x80", events => {
+    @debug.assert_eq(events.read_event(), @input.Unknown(b"\x1b\x80"))
+  })
+}
+
+///|
 async test "decode split csi arrow" {
   with_delayed_input(b"\x1b[", b"A", 5, events => {
     @debug.assert_eq(
       events.read_event(esc_timeout=50),
       @input.Key(@input.KeyEvent::new(@input.Up)),
+    )
+  })
+}
+
+///|
+async test "decode control bytes" {
+  with_input(b"\n\t\x7f\x08\x00\x01\x1a\x1c\x1f", events => {
+    @debug.assert_eq(
+      events.read_event(),
+      @input.Key(
+        @input.KeyEvent::new(
+          @input.Char('j'),
+          modifiers=@input.KeyModifiers::new(ctrl=true),
+        ),
+      ),
+    )
+    @debug.assert_eq(
+      events.read_event(),
+      @input.Key(@input.KeyEvent::new(@input.Tab)),
+    )
+    @debug.assert_eq(
+      events.read_event(),
+      @input.Key(@input.KeyEvent::new(@input.Backspace)),
+    )
+    @debug.assert_eq(
+      events.read_event(),
+      @input.Key(@input.KeyEvent::new(@input.Backspace)),
+    )
+    @debug.assert_eq(
+      events.read_event(),
+      @input.Key(
+        @input.KeyEvent::new(
+          @input.Char(' '),
+          modifiers=@input.KeyModifiers::new(ctrl=true),
+        ),
+      ),
+    )
+    @debug.assert_eq(
+      events.read_event(),
+      @input.Key(
+        @input.KeyEvent::new(
+          @input.Char('a'),
+          modifiers=@input.KeyModifiers::new(ctrl=true),
+        ),
+      ),
+    )
+    @debug.assert_eq(
+      events.read_event(),
+      @input.Key(
+        @input.KeyEvent::new(
+          @input.Char('z'),
+          modifiers=@input.KeyModifiers::new(ctrl=true),
+        ),
+      ),
+    )
+    @debug.assert_eq(
+      events.read_event(),
+      @input.Key(
+        @input.KeyEvent::new(
+          @input.Char('4'),
+          modifiers=@input.KeyModifiers::new(ctrl=true),
+        ),
+      ),
+    )
+    @debug.assert_eq(
+      events.read_event(),
+      @input.Key(
+        @input.KeyEvent::new(
+          @input.Char('7'),
+          modifiers=@input.KeyModifiers::new(ctrl=true),
+        ),
+      ),
     )
   })
 }
@@ -136,6 +256,75 @@ async test "decode ss3 cursor and function keys" {
 }
 
 ///|
+async test "decode ss3 cursor variants" {
+  with_input(b"\x1bOB\x1bOC\x1bOD\x1bOH\x1bOF", events => {
+    @debug.assert_eq(
+      events.read_event(),
+      @input.Key(@input.KeyEvent::new(@input.Down)),
+    )
+    @debug.assert_eq(
+      events.read_event(),
+      @input.Key(@input.KeyEvent::new(@input.Right)),
+    )
+    @debug.assert_eq(
+      events.read_event(),
+      @input.Key(@input.KeyEvent::new(@input.Left)),
+    )
+    @debug.assert_eq(
+      events.read_event(),
+      @input.Key(@input.KeyEvent::new(@input.Home)),
+    )
+    @debug.assert_eq(
+      events.read_event(),
+      @input.Key(@input.KeyEvent::new(@input.End)),
+    )
+  })
+}
+
+///|
+async test "decode ss3 function variants and unknown" {
+  with_input(b"\x1bOQ\x1bOR\x1bOS\x1bOX", events => {
+    @debug.assert_eq(
+      events.read_event(),
+      @input.Key(@input.KeyEvent::new(@input.F2)),
+    )
+    @debug.assert_eq(
+      events.read_event(),
+      @input.Key(@input.KeyEvent::new(@input.F3)),
+    )
+    @debug.assert_eq(
+      events.read_event(),
+      @input.Key(@input.KeyEvent::new(@input.F4)),
+    )
+    @debug.assert_eq(events.read_event(), @input.Unknown(b"\x1bOX"))
+  })
+}
+
+///|
+async test "flush incomplete ss3 as unknown" {
+  with_delayed_input(b"\x1bO", b"", 50, events => {
+    @debug.assert_eq(
+      events.read_event(esc_timeout=10),
+      @input.Unknown(b"\x1bO"),
+    )
+  })
+}
+
+///|
+async test "decode ss3 before repeated escape" {
+  with_delayed_input(b"\x1bO\x1b", b"", 50, events => {
+    @debug.assert_eq(
+      events.read_event(esc_timeout=10),
+      @input.Unknown(b"\x1bO"),
+    )
+    @debug.assert_eq(
+      events.read_event(esc_timeout=10),
+      @input.Key(@input.KeyEvent::new(@input.Escape)),
+    )
+  })
+}
+
+///|
 async test "decode csi function and home end variants" {
   with_input(b"\x1b[1~\x1b[8~\x1b[15~\x1b[24~", events => {
     @debug.assert_eq(
@@ -153,6 +342,124 @@ async test "decode csi function and home end variants" {
     @debug.assert_eq(
       events.read_event(),
       @input.Key(@input.KeyEvent::new(@input.F12)),
+    )
+  })
+}
+
+///|
+async test "decode csi direct key variants" {
+  with_input(b"\x1b[Z\x1b[B\x1b[C\x1b[D\x1b[H\x1b[F\x1b[Q\x1b[R\x1b[S", events => {
+    @debug.assert_eq(
+      events.read_event(),
+      @input.Key(
+        @input.KeyEvent::new(
+          @input.Tab,
+          modifiers=@input.KeyModifiers::new(shift=true),
+        ),
+      ),
+    )
+    @debug.assert_eq(
+      events.read_event(),
+      @input.Key(@input.KeyEvent::new(@input.Down)),
+    )
+    @debug.assert_eq(
+      events.read_event(),
+      @input.Key(@input.KeyEvent::new(@input.Right)),
+    )
+    @debug.assert_eq(
+      events.read_event(),
+      @input.Key(@input.KeyEvent::new(@input.Left)),
+    )
+    @debug.assert_eq(
+      events.read_event(),
+      @input.Key(@input.KeyEvent::new(@input.Home)),
+    )
+    @debug.assert_eq(
+      events.read_event(),
+      @input.Key(@input.KeyEvent::new(@input.End)),
+    )
+    @debug.assert_eq(
+      events.read_event(),
+      @input.Key(@input.KeyEvent::new(@input.F2)),
+    )
+    @debug.assert_eq(
+      events.read_event(),
+      @input.Key(@input.KeyEvent::new(@input.F3)),
+    )
+    @debug.assert_eq(
+      events.read_event(),
+      @input.Key(@input.KeyEvent::new(@input.F4)),
+    )
+  })
+}
+
+///|
+async test "decode csi tilde variants" {
+  with_input(
+    b"\x1b[2~\x1b[5~\x1b[6~\x1b[11~\x1b[12~\x1b[13~\x1b[14~\x1b[17~\x1b[18~\x1b[19~\x1b[20~\x1b[21~\x1b[23~",
+    events => {
+      @debug.assert_eq(
+        events.read_event(),
+        @input.Key(@input.KeyEvent::new(@input.Insert)),
+      )
+      @debug.assert_eq(
+        events.read_event(),
+        @input.Key(@input.KeyEvent::new(@input.PageUp)),
+      )
+      @debug.assert_eq(
+        events.read_event(),
+        @input.Key(@input.KeyEvent::new(@input.PageDown)),
+      )
+      @debug.assert_eq(
+        events.read_event(),
+        @input.Key(@input.KeyEvent::new(@input.F1)),
+      )
+      @debug.assert_eq(
+        events.read_event(),
+        @input.Key(@input.KeyEvent::new(@input.F2)),
+      )
+      @debug.assert_eq(
+        events.read_event(),
+        @input.Key(@input.KeyEvent::new(@input.F3)),
+      )
+      @debug.assert_eq(
+        events.read_event(),
+        @input.Key(@input.KeyEvent::new(@input.F4)),
+      )
+      @debug.assert_eq(
+        events.read_event(),
+        @input.Key(@input.KeyEvent::new(@input.F6)),
+      )
+      @debug.assert_eq(
+        events.read_event(),
+        @input.Key(@input.KeyEvent::new(@input.F7)),
+      )
+      @debug.assert_eq(
+        events.read_event(),
+        @input.Key(@input.KeyEvent::new(@input.F8)),
+      )
+      @debug.assert_eq(
+        events.read_event(),
+        @input.Key(@input.KeyEvent::new(@input.F9)),
+      )
+      @debug.assert_eq(
+        events.read_event(),
+        @input.Key(@input.KeyEvent::new(@input.F10)),
+      )
+      @debug.assert_eq(
+        events.read_event(),
+        @input.Key(@input.KeyEvent::new(@input.F11)),
+      )
+    },
+  )
+}
+
+///|
+async test "decode csi tilde key with empty modifier parameter" {
+  with_input(b"\x1b[2;~", events => {
+    @debug.assert_eq(
+      events.read_event(),
+      @input.Key(@input.KeyEvent::new(@input.Insert)),
     )
   })
 }
@@ -186,6 +493,20 @@ async test "decode csi key modifiers" {
           modifiers=@input.KeyModifiers::new(shift=true),
         ),
       ),
+    )
+  })
+}
+
+///|
+async test "decode csi zero modifier as no modifiers" {
+  with_input(b"\x1b[1;0A\x1b[3;0~", events => {
+    @debug.assert_eq(
+      events.read_event(),
+      @input.Key(@input.KeyEvent::new(@input.Up)),
+    )
+    @debug.assert_eq(
+      events.read_event(),
+      @input.Key(@input.KeyEvent::new(@input.Delete)),
     )
   })
 }
@@ -235,6 +556,40 @@ async test "flush incomplete csi as unknown" {
     @debug.assert_eq(
       events.read_event(esc_timeout=10),
       @input.Unknown(b"\x1b[12;"),
+    )
+  })
+}
+
+///|
+async test "decode invalid csi parameter shapes as unknown" {
+  with_input(b"\x1b[?~\x1b[?A\x1b[1;2;3A\x1b[1;2;3~\x1b[ 1\x1b[\x80", events => {
+    @debug.assert_eq(events.read_event(), @input.Unknown(b"\x1b[?~"))
+    @debug.assert_eq(events.read_event(), @input.Unknown(b"\x1b[?A"))
+    @debug.assert_eq(events.read_event(), @input.Unknown(b"\x1b[1;2;3A"))
+    @debug.assert_eq(events.read_event(), @input.Unknown(b"\x1b[1;2;3~"))
+    @debug.assert_eq(events.read_event(), @input.Unknown(b"\x1b[ 1"))
+    @debug.assert_eq(events.read_event(), @input.Unknown(b"\x1b[\x80"))
+  })
+}
+
+///|
+async test "decode unsupported csi final as unknown" {
+  with_input(b"\x1b[1za", events => {
+    @debug.assert_eq(events.read_event(), @input.Unknown(b"\x1b[1z"))
+    @debug.assert_eq(
+      events.read_event(),
+      @input.Key(@input.KeyEvent::new(@input.Char('a'), text="a")),
+    )
+  })
+}
+
+///|
+async test "decode long csi grows event buffer" {
+  with_input(b"\x1b[1234567890~a", events => {
+    @debug.assert_eq(events.read_event(), @input.Unknown(b"\x1b[1234567890~"))
+    @debug.assert_eq(
+      events.read_event(),
+      @input.Key(@input.KeyEvent::new(@input.Char('a'), text="a")),
     )
   })
 }
