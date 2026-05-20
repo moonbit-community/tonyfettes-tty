@@ -102,7 +102,7 @@ async fn run_cursor_demo(tty : @tty.Tty) -> Unit {
   draw_marker(tty, anchor, x, y)
   draw_status(tty, anchor, size, x, y, visible)
   while true {
-    let key = @tty.stdin.read_byte()
+    let key = @async/stdio.stdin.read_exactly(1)[0]
     if key == b'q' || key == b'Q' || key == b'\x03' {
       break
     }

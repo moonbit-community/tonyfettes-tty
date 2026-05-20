@@ -1,12 +1,12 @@
 ///|
-async fn write(text : String) -> Unit {
-  @tty.stdout.write(text)
+async fn write(tty : @tty.Tty, text : String) -> Unit {
+  tty.write(text)
 }
 
 ///|
-async fn writeln(text : String) -> Unit {
-  write(text)
-  write("\r\n")
+async fn writeln(tty : @tty.Tty, text : String) -> Unit {
+  write(tty, text)
+  write(tty, "\r\n")
 }
 
 ///|
@@ -75,22 +75,22 @@ fn light_basic_background(index : Int) -> Bool {
 
 ///|
 async fn write_basic_foregrounds(tty : @tty.Tty) -> Unit {
-  writeln("ANSI 16 foreground")
+  writeln(tty, "ANSI 16 foreground")
   for i in 0..<16 {
     tty.set_foreground(@tty_color.Basic(basic_color(i)))
-    write(pad_right(basic_name(i), 15))
+    write(tty, pad_right(basic_name(i), 15))
     tty.reset_foreground()
     if i == 7 || i == 15 {
-      writeln("")
+      writeln(tty, "")
     } else {
-      write(" ")
+      write(tty, " ")
     }
   }
 }
 
 ///|
 async fn write_basic_backgrounds(tty : @tty.Tty) -> Unit {
-  writeln("ANSI 16 background")
+  writeln(tty, "ANSI 16 background")
   for i in 0..<16 {
     let foreground = if light_basic_background(i) {
       @tty_color.Basic(@tty_color.Black)
@@ -99,12 +99,12 @@ async fn write_basic_backgrounds(tty : @tty.Tty) -> Unit {
     }
     tty.set_background(@tty_color.Basic(basic_color(i)))
     tty.set_foreground(foreground)
-    write(" " + pad_right(basic_name(i), 14))
+    write(tty, " " + pad_right(basic_name(i), 14))
     tty.reset_style()
     if i == 7 || i == 15 {
-      writeln("")
+      writeln(tty, "")
     } else {
-      write(" ")
+      write(tty, " ")
     }
   }
 }
@@ -112,37 +112,37 @@ async fn write_basic_backgrounds(tty : @tty.Tty) -> Unit {
 ///|
 async fn write_index_swatch(tty : @tty.Tty, index : Int) -> Unit {
   tty.set_background(@tty_color.Indexed(index))
-  write("  ")
+  write(tty, "  ")
   tty.reset_style()
 }
 
 ///|
 async fn write_256_colors(tty : @tty.Tty) -> Unit {
-  writeln("Indexed 0..15")
+  writeln(tty, "Indexed 0..15")
   for i in 0..<16 {
     write_index_swatch(tty, i)
   }
-  writeln("")
-  writeln("Indexed 16..231 color cube")
+  writeln(tty, "")
+  writeln(tty, "Indexed 16..231 color cube")
   for red in 0..<6 {
-    writeln("red=\{red}")
+    writeln(tty, "red=\{red}")
     for green in 0..<6 {
       for blue in 0..<6 {
         write_index_swatch(tty, 16 + red * 36 + green * 6 + blue)
       }
-      writeln("")
+      writeln(tty, "")
     }
   }
-  writeln("Indexed 232..255 grayscale")
+  writeln(tty, "Indexed 232..255 grayscale")
   for i in 232..<256 {
     write_index_swatch(tty, i)
   }
-  writeln("")
+  writeln(tty, "")
 }
 
 ///|
 async fn write_truecolor_gradient(tty : @tty.Tty) -> Unit {
-  writeln("Truecolor RGB gradients")
+  writeln(tty, "Truecolor RGB gradients")
   for row in 0..<3 {
     for col in 0..<64 {
       let value = col * 255 / 63
@@ -152,24 +152,24 @@ async fn write_truecolor_gradient(tty : @tty.Tty) -> Unit {
         _ => @tty_color.Rgb(64, 255 - value, value)
       }
       tty.set_background(color)
-      write(" ")
+      write(tty, " ")
     }
     tty.reset_style()
-    writeln("")
+    writeln(tty, "")
   }
 }
 
 ///|
 async fn main {
   let tty = @tty.Tty::stdio()
-  writeln("tty color specimen")
-  writeln("")
+  writeln(tty, "tty color specimen")
+  writeln(tty, "")
   write_basic_foregrounds(tty)
-  writeln("")
+  writeln(tty, "")
   write_basic_backgrounds(tty)
-  writeln("")
+  writeln(tty, "")
   write_256_colors(tty)
-  writeln("")
+  writeln(tty, "")
   write_truecolor_gradient(tty)
   tty.reset_style()
 }

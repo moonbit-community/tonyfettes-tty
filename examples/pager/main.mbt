@@ -176,25 +176,32 @@ fn line_at(lines : Array[String], index : Int) -> String {
 }
 
 ///|
-async fn render_content_row(row : Int, text : String, cols : Int) -> Unit {
-  @tty.stdout.write(@tty/vt.cursor_position(row, 1))
-  @tty.stdout.write(@tty/vt.erase_line_all)
-  @tty.stdout.write(fit_line(text, cols))
+async fn render_content_row(
+  tty : @tty.Tty,
+  row : Int,
+  text : String,
+  cols : Int,
+) -> Unit {
+  tty.write(@tty/vt.cursor_position(row, 1))
+  tty.write(@tty/vt.erase_line_all)
+  tty.write(fit_line(text, cols))
 }
 
 ///|
 async fn render_status(
+  tty : @tty.Tty,
   title : String,
   lines : Array[String],
   offset : Int,
   size : PagerSize,
 ) -> Unit {
-  @tty.stdout.write(@tty/vt.cursor_position(status_row(size), 1))
-  render_status_current(title, lines, offset, size)
+  tty.write(@tty/vt.cursor_position(status_row(size), 1))
+  render_status_current(tty, title, lines, offset, size)
 }
 
 ///|
 async fn render_status_current(
+  tty : @tty.Tty,
   title : String,
   lines : Array[String],
   offset : Int,
@@ -209,19 +216,24 @@ async fn render_status_current(
     "q quit  j/k scroll  space/b page"
   }
   let status = "\{title}  \{first}-\{last}/\{lines.length()}  \{controls}"
-  @tty.stdout.write("\r")
-  @tty.stdout.write(@tty/vt.erase_line_all)
-  @tty.stdout.write(fit_line(status, size.cols))
+  tty.write("\r")
+  tty.write(@tty/vt.erase_line_all)
+  tty.write(fit_line(status, size.cols))
 }
 
 ///|
-async fn write_inline_content_row(text : String, cols : Int) -> Unit {
-  @tty.stdout.write(fit_line(text, cols))
-  @tty.stdout.write("\r\n")
+async fn write_inline_content_row(
+  tty : @tty.Tty,
+  text : String,
+  cols : Int,
+) -> Unit {
+  tty.write(fit_line(text, cols))
+  tty.write("\r\n")
 }
 
 ///|
 async fn render_initial(
+  tty : @tty.Tty,
   title : String,
   lines : Array[String],
   offset : Int,
@@ -230,65 +242,68 @@ async fn render_initial(
   let rows = body_rows(size)
   if content_fits(lines, size) {
     for row in 0..<lines.length() {
-      write_inline_content_row(line_at(lines, row), size.cols)
+      write_inline_content_row(tty, line_at(lines, row), size.cols)
     }
-    render_status_current(title, lines, offset, size)
+    render_status_current(tty, title, lines, offset, size)
     false
   } else {
     for row in 0..<rows {
-      write_inline_content_row(line_at(lines, offset + row), size.cols)
+      write_inline_content_row(tty, line_at(lines, offset + row), size.cols)
     }
-    render_status_current(title, lines, offset, size)
-    @tty.stdout.write(@tty/vt.set_top_bottom_margins(1, rows))
-    @tty.stdout.write(@tty/vt.cursor_position(status_row(size), 1))
-    render_status_current(title, lines, offset, size)
+    render_status_current(tty, title, lines, offset, size)
+    tty.write(@tty/vt.set_top_bottom_margins(1, rows))
+    tty.write(@tty/vt.cursor_position(status_row(size), 1))
+    render_status_current(tty, title, lines, offset, size)
     true
   }
 }
 
 ///|
 async fn render_full(
+  tty : @tty.Tty,
   title : String,
   lines : Array[String],
   offset : Int,
   size : PagerSize,
 ) -> Unit {
   let rows = body_rows(size)
-  @tty.stdout.write(@tty/vt.set_top_bottom_margins(1, rows))
+  tty.write(@tty/vt.set_top_bottom_margins(1, rows))
   for row in 1..<=rows {
-    render_content_row(row, line_at(lines, offset + row - 1), size.cols)
+    render_content_row(tty, row, line_at(lines, offset + row - 1), size.cols)
   }
-  render_status(title, lines, offset, size)
+  render_status(tty, title, lines, offset, size)
 }
 
 ///|
 async fn scroll_forward_one(
+  tty : @tty.Tty,
   title : String,
   lines : Array[String],
   offset : Int,
   size : PagerSize,
 ) -> Unit {
   let rows = body_rows(size)
-  @tty.stdout.write(@tty/vt.set_top_bottom_margins(1, rows))
-  @tty.stdout.write(@tty/vt.cursor_position(rows, 1))
-  @tty.stdout.write("\n")
-  render_content_row(rows, line_at(lines, offset + rows - 1), size.cols)
-  render_status(title, lines, offset, size)
+  tty.write(@tty/vt.set_top_bottom_margins(1, rows))
+  tty.write(@tty/vt.cursor_position(rows, 1))
+  tty.write("\n")
+  render_content_row(tty, rows, line_at(lines, offset + rows - 1), size.cols)
+  render_status(tty, title, lines, offset, size)
 }
 
 ///|
 async fn scroll_backward_one(
+  tty : @tty.Tty,
   title : String,
   lines : Array[String],
   offset : Int,
   size : PagerSize,
 ) -> Unit {
   let rows = body_rows(size)
-  @tty.stdout.write(@tty/vt.set_top_bottom_margins(1, rows))
-  @tty.stdout.write(@tty/vt.cursor_position(1, 1))
-  @tty.stdout.write(@tty/vt.reverse_index)
-  render_content_row(1, line_at(lines, offset), size.cols)
-  render_status(title, lines, offset, size)
+  tty.write(@tty/vt.set_top_bottom_margins(1, rows))
+  tty.write(@tty/vt.cursor_position(1, 1))
+  tty.write(@tty/vt.reverse_index)
+  render_content_row(tty, 1, line_at(lines, offset), size.cols)
+  render_status(tty, title, lines, offset, size)
 }
 
 ///|
@@ -298,6 +313,7 @@ fn size_changed(a : PagerSize, b : PagerSize) -> Bool {
 
 ///|
 async fn redraw(
+  tty : @tty.Tty,
   title : String,
   lines : Array[String],
   old_offset : Int,
@@ -306,15 +322,15 @@ async fn redraw(
   new_size : PagerSize,
 ) -> Unit {
   if size_changed(old_size, new_size) {
-    render_full(title, lines, new_offset, new_size)
+    render_full(tty, title, lines, new_offset, new_size)
   } else if new_offset == old_offset + 1 {
-    scroll_forward_one(title, lines, new_offset, new_size)
+    scroll_forward_one(tty, title, lines, new_offset, new_size)
   } else if new_offset == old_offset - 1 {
-    scroll_backward_one(title, lines, new_offset, new_size)
+    scroll_backward_one(tty, title, lines, new_offset, new_size)
   } else if new_offset != old_offset {
-    render_full(title, lines, new_offset, new_size)
+    render_full(tty, title, lines, new_offset, new_size)
   } else {
-    render_status(title, lines, new_offset, new_size)
+    render_status(tty, title, lines, new_offset, new_size)
   }
 }
 
@@ -344,7 +360,7 @@ async fn run_pager(
 ) -> Unit {
   let mut size = terminal_size(tty)
   let mut offset = clamp_offset(0, lines, body_rows(size))
-  let mut full_screen = render_initial(title, lines, offset, size)
+  let mut full_screen = render_initial(tty, title, lines, offset, size)
   while true {
     let event = tty.read_event(esc_timeout=esc_timeout_ms) catch {
       @async/io.ReaderClosed => break
@@ -375,11 +391,11 @@ async fn run_pager(
     size = terminal_size(tty)
     next_offset = clamp_offset(next_offset, lines, body_rows(size))
     if full_screen {
-      redraw(title, lines, old_offset, next_offset, old_size, size)
+      redraw(tty, title, lines, old_offset, next_offset, old_size, size)
     } else if content_fits(lines, size) {
-      render_status_current(title, lines, next_offset, size)
+      render_status_current(tty, title, lines, next_offset, size)
     } else {
-      full_screen = render_initial(title, lines, next_offset, size)
+      full_screen = render_initial(tty, title, lines, next_offset, size)
     }
     offset = next_offset
   }

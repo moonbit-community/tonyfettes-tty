@@ -17,47 +17,51 @@ fn byte_to_hex_line(byte : Byte) -> Bytes {
 }
 
 ///|
-async fn write_line(line : String) -> Unit {
-  @tty.stdout.write(line)
-  @tty.stdout.write("\r\n")
+async fn write_line(tty : @tty.Tty, line : String) -> Unit {
+  tty.write(line)
+  tty.write("\r\n")
 }
 
 ///|
-async fn run_raw_loop() -> Unit {
+async fn run_raw_loop(tty : @tty.Tty) -> Unit {
   while true {
-    let byte = @tty.stdin.read_byte() catch {
-      @async/io.ReaderClosed => break
-      error => raise error
-    }
+    let byte = @async/stdio.stdin.read_exactly(1)[0] catch {
+        @async/io.ReaderClosed => break
+        error => raise error
+      }
     if byte == b'q' {
-      write_line("q pressed; leaving raw mode")
+      write_line(tty, "q pressed; leaving raw mode")
       break
     }
-    @tty.stdout.write("read ")
-    @tty.stdout.write(byte_to_hex_line(byte))
+    tty.write("read ")
+    tty.write(byte_to_hex_line(byte))
   }
 }
 
 ///|
 async fn main {
   let tty = @tty.Tty::stdio()
-  write_line("raw-mode demo")
+  write_line(tty, "raw-mode demo")
   write_line(
-    "The program will switch stdin to raw mode and print one byte per key press.",
+    tty, "The program will switch stdin to raw mode and print one byte per key press.",
   )
   write_line(
-    "Checks: normal keys should print immediately; Enter should not be required.",
+    tty, "Checks: normal keys should print immediately; Enter should not be required.",
   )
-  write_line("Ctrl-C should print 0x03 instead of terminating the process.")
-  write_line("Backspace is usually 0x7f or 0x08. Press q to restore and exit.")
-  write_line("If the terminal is left raw after a crash, run: stty sane")
-  write_line("")
-  write_line("entering raw mode...")
+  write_line(
+    tty, "Ctrl-C should print 0x03 instead of terminating the process.",
+  )
+  write_line(
+    tty, "Backspace is usually 0x7f or 0x08. Press q to restore and exit.",
+  )
+  write_line(tty, "If the terminal is left raw after a crash, run: stty sane")
+  write_line(tty, "")
+  write_line(tty, "entering raw mode...")
   let state = tty.enter_raw_mode()
   let mut restored = false
   try {
-    write_line("raw mode active")
-    run_raw_loop()
+    write_line(tty, "raw mode active")
+    run_raw_loop(tty)
   } catch {
     error => {
       tty.leave_raw_mode(state)
@@ -68,5 +72,5 @@ async fn main {
   if !restored {
     tty.leave_raw_mode(state)
   }
-  write_line("terminal restored")
+  write_line(tty, "terminal restored")
 }

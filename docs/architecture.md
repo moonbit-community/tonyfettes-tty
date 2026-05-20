@@ -26,10 +26,10 @@ place to preserve decisions that would otherwise be rediscovered in chat.
 The root `tonyfettes/tty` package owns platform tty handles and stateful terminal
 operations:
 
-- stdio handles: `stdin`, `stdout`, `stderr`
-- `/dev/tty` style open operations where supported
 - `Tty`, a narrow handle that coordinates one terminal input stream and output
   stream for terminal capabilities and request/response protocols
+- `Tty::stdio` and `Tty::open` convenience constructors for process stdio and
+  `/dev/tty` style handles where supported
 - `Reader` and `Writer`, terminal-handle traits that extend async I/O with
   descriptor and close operations for `Tty::new`
 - `isatty`
@@ -38,7 +38,6 @@ operations:
 - command helpers for common screen, cursor, and style operations through `Tty`
 - terminal state operations such as `Tty::get_state`, `Tty::set_state`, and raw
   mode helpers through `Tty`
-- async read/write through low-level `Input` and `Output` wrappers
 
 Platform FFI belongs here because raw mode, terminal dimensions, and handle
 lifetime are properties of the underlying terminal device, not of VT byte
@@ -48,8 +47,9 @@ generation.
 handles through root `Reader`/`Writer` trait bounds and stores trait objects
 internally so public `Tty` methods do not carry concrete input/output types.
 `Tty::stdio` and `Tty::open` are convenience constructors over those traits.
-Root `Input` and `Output` remain low-level wrappers for now, but terminal
-capability APIs should continue to live on `Tty`.
+Raw file and stdio I/O belongs to `moonbitlang/async/fs` and
+`moonbitlang/async/stdio`; the root package should not duplicate those APIs with
+thin wrapper types.
 
 ### `vt`
 
@@ -66,7 +66,7 @@ It should:
 
 It should not:
 
-- write to `Output`
+- write to or own an output stream
 - depend on `@io.Writer`
 - remember cursor position
 - model a screen buffer
@@ -101,9 +101,8 @@ terminal. Raw byte callers should use low-level `vt` helpers directly.
 
 Root callers that want decoded terminal input events should use
 `Tty::read_event` so terminal request/response side channels and normal input
-decoding share one buffered reader. Root `Input` does not expose `EventReader`;
-direct construction belongs to the low-level `input` package for callers
-decoding an arbitrary `@io.Reader`.
+decoding share one buffered reader. Direct `EventReader` construction belongs to
+the low-level `input` package for callers decoding an arbitrary `@io.Reader`.
 
 Color capability detection belongs in a future higher-level package or plan
 because it combines tty state, environment policy, and terminal conventions.

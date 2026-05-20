@@ -5,21 +5,21 @@ let prompt : String = "> "
 let esc_timeout_ms : Int = 50
 
 ///|
-async fn writeln(line : String) -> Unit {
-  @tty.stdout.write(line)
-  @tty.stdout.write("\r\n")
+async fn writeln(tty : @tty.Tty, line : String) -> Unit {
+  tty.write(line)
+  tty.write("\r\n")
 }
 
 ///|
-async fn redraw_input(buffer : String, status : String) -> Unit {
-  @tty.stdout.write("\r")
-  @tty.stdout.write(@tty/vt.erase_line_all)
-  @tty.stdout.write(prompt)
-  @tty.stdout.write(buffer)
+async fn redraw_input(tty : @tty.Tty, buffer : String, status : String) -> Unit {
+  tty.write("\r")
+  tty.write(@tty/vt.erase_line_all)
+  tty.write(prompt)
+  tty.write(buffer)
   if status.length() > 0 {
     let suffix = "  \{status}"
-    @tty.stdout.write(suffix)
-    @tty.stdout.write(@tty/vt.cursor_back(display_width(suffix)))
+    tty.write(suffix)
+    tty.write(@tty/vt.cursor_back(display_width(suffix)))
   }
 }
 
@@ -40,12 +40,12 @@ fn delete_last_grapheme(text : String) -> String {
 }
 
 ///|
-async fn submit(line : String) -> Unit {
-  @tty.stdout.write("\r")
-  @tty.stdout.write(@tty/vt.erase_line_all)
-  writeln("\{prompt}\{line}")
-  writeln("submitted: \{line}")
-  redraw_input("", "submitted")
+async fn submit(tty : @tty.Tty, line : String) -> Unit {
+  tty.write("\r")
+  tty.write(@tty/vt.erase_line_all)
+  writeln(tty, "\{prompt}\{line}")
+  writeln(tty, "submitted: \{line}")
+  redraw_input(tty, "", "submitted")
 }
 
 ///|
@@ -125,11 +125,12 @@ fn describe_key(key : @tty/input.KeyEvent) -> String {
 ///|
 async fn run_input_buffer(tty : @tty.Tty) -> Unit {
   let mut buffer = ""
-  writeln("input buffer demo")
+  writeln(tty, "input buffer demo")
   writeln(
+    tty,
     "Type text. Enter submits. Backspace deletes one grapheme. Esc uses a \{esc_timeout_ms}ms timeout. Ctrl-C exits.",
   )
-  redraw_input(buffer, "")
+  redraw_input(tty, buffer, "")
   while true {
     let event = tty.read_event(esc_timeout=esc_timeout_ms) catch {
       @async/io.ReaderClosed => break
@@ -139,26 +140,26 @@ async fn run_input_buffer(tty : @tty.Tty) -> Unit {
       Key(key) =>
         match key.code {
           Char('c') if key.modifiers.ctrl() => {
-            @tty.stdout.write("\r")
-            @tty.stdout.write(@tty/vt.erase_line_all)
-            writeln("exiting")
+            tty.write("\r")
+            tty.write(@tty/vt.erase_line_all)
+            writeln(tty, "exiting")
             break
           }
           Enter => {
-            submit(buffer)
+            submit(tty, buffer)
             buffer = ""
           }
           Backspace => {
             buffer = delete_last_grapheme(buffer)
-            redraw_input(buffer, "event: Backspace")
+            redraw_input(tty, buffer, "event: Backspace")
           }
           Text =>
             match key.text {
               Some(text) => {
                 buffer = buffer + text
-                redraw_input(buffer, describe_key(key))
+                redraw_input(tty, buffer, describe_key(key))
               }
-              None => redraw_input(buffer, describe_key(key))
+              None => redraw_input(tty, buffer, describe_key(key))
             }
           Char(ch) if !key.modifiers.ctrl() && !key.modifiers.alt() => {
             let text = match key.text {
@@ -166,12 +167,13 @@ async fn run_input_buffer(tty : @tty.Tty) -> Unit {
               None => [ch]
             }
             buffer = buffer + text
-            redraw_input(buffer, describe_key(key))
+            redraw_input(tty, buffer, describe_key(key))
           }
-          _ => redraw_input(buffer, describe_key(key))
+          _ => redraw_input(tty, buffer, describe_key(key))
         }
       @tty/input.Unknown(bytes) =>
         redraw_input(
+          tty,
           buffer,
           "event: Unknown \{bytes.length()} bytes [\{describe_bytes(bytes)}]",
         )

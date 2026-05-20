@@ -1,6 +1,7 @@
 import {
   "moonbitlang/async",
   "moonbitlang/async/io" @async/io,
+  "moonbitlang/async/stdio" @async/stdio,
   "tonyfettes/tty",
 }
 

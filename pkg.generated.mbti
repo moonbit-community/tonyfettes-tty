@@ -13,12 +13,6 @@ import {
 // Values
 pub fn isatty(Int) -> Bool raise TtyError
 
-pub let stderr : Output
-
-pub let stdin : Input
-
-pub let stdout : Output
-
 // Errors
 type TtyError
 
@@ -27,21 +21,6 @@ pub struct CursorPosition {
   row : Int
   col : Int
 } derive(Eq)
-
-type Input
-pub fn Input::close(Self) -> Unit
-pub fn Input::fd(Self) -> Int
-pub async fn Input::open() -> Self
-pub async fn Input::read(Self, FixedArray[Byte], offset? : Int, max_len? : Int) -> Int
-pub async fn Input::read_byte(Self) -> Byte
-pub async fn Input::read_some(Self) -> Bytes?
-
-type Output
-pub fn Output::close(Self) -> Unit
-pub fn Output::fd(Self) -> Int
-pub async fn Output::open() -> Self
-pub async fn Output::write(Self, &@io.Data) -> Unit
-pub async fn Output::write_string(Self, String) -> Unit
 
 type State
 pub fn State::make_raw(Self) -> Self
