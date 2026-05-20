@@ -10,8 +10,9 @@ small public event model and validates common terminal key sequences in
 
 Active.
 
-The implementation is currently in the worktree and should be committed only
-after this plan's acceptance criteria and public API audit are current.
+The common-key implementation has landed. This plan remains active for manual
+terminal validation and follow-up policy decisions such as UTF-8 text and
+bracketed paste.
 
 ## Context And Decisions
 
@@ -41,6 +42,12 @@ after this plan's acceptance criteria and public API audit are current.
   and tilde-form function keys.
 - xterm modifier parameter convention where the encoded modifier value is
   `1 + bitmask`.
+- Crossterm treats `CSI Ps [; modifier] ~` as `parse_csi_special_key_code`,
+  with the first parameter selecting Home, Insert, Delete, PageUp, function
+  keys, and related special keys.
+- Ultraviolet parses CSI into parameters, intermediates, and final byte; it
+  handles `~` as a numbered key family and applies xterm-style modifiers from
+  the second parameter.
 
 ## Target Files
 
@@ -134,6 +141,21 @@ Partial validation on 2026-05-20:
 - `moon info` passed.
 
 Manual `moon run cmd/input` validation is still pending.
+
+Follow-up audit on 2026-05-20:
+
+- Commit `7c00977 refactor(input): match csi keys with rest patterns` rewrote
+  `csi_event` to match CSI framing as `ESC [` + params + final byte.
+- `CSI Ps [; modifier] ~` is intentionally handled separately because `~` is a
+  final byte for a numbered special-key family; the key code is carried by the
+  first parameter.
+- The refactor follows the same broad split used by crossterm and ultraviolet:
+  direct final-byte keys such as `A/B/C/D/H/F/P/Q/R/S`, and numbered
+  tilde-form keys such as Delete, PageUp, and F5-F12.
+- The refactor did not change the public input API. `moon info` reported no
+  generated interface work.
+- Validation for the refactor passed before commit: `moon fmt`, `moon test
+  input`, `moon check`, and `moon info`.
 
 ## Open Questions
 
