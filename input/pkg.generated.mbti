@@ -7,7 +7,6 @@ import {
 }
 
 // Values
-pub async fn[R : @io.Reader] read_event(R, esc_timeout? : Int) -> Event
 
 // Errors
 
@@ -16,6 +15,10 @@ pub(all) enum Event {
   Key(KeyEvent)
   Unknown(Bytes)
 } derive(Eq, @debug.Debug)
+
+type EventReader
+pub fn EventReader::new(&@io.Reader) -> Self
+pub async fn EventReader::read_event(Self, esc_timeout? : Int) -> Event
 
 pub(all) enum KeyCode {
   Char(Char)

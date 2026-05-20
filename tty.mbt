@@ -53,13 +53,10 @@ pub async fn Input::read_byte(self : Input) -> Byte {
 }
 
 ///|
-pub async fn Input::read_event(
-  self : Input,
-  esc_timeout? : Int = 50,
-) -> @input.Event {
+pub fn Input::event_reader(self : Input) -> @input.EventReader {
   match self {
-    File(file) => @input.read_event(file, esc_timeout~)
-    Stdio(stdin) => @input.read_event(stdin, esc_timeout~)
+    File(file) => @input.EventReader::new(file)
+    Stdio(stdin) => @input.EventReader::new(stdin)
   }
 }
 

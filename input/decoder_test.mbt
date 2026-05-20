@@ -1,12 +1,12 @@
 ///|
-async fn with_input(bytes : Bytes, f : async (@io.PipeRead) -> Unit) -> Unit {
+async fn with_input(bytes : Bytes, f : async (EventReader) -> Unit) -> Unit {
   @async.with_task_group() <| group => {
     let (reader, writer) = @io.pipe()
     group.spawn_bg() <| () => {
       defer writer.close()
       writer.write(bytes)
     }
-    f(reader)
+    f(EventReader::new(reader))
     reader.close()
   }
 }
@@ -16,7 +16,7 @@ async fn with_delayed_input(
   first : Bytes,
   second : Bytes,
   delay : Int,
-  f : async (@io.PipeRead) -> Unit,
+  f : async (EventReader) -> Unit,
 ) -> Unit {
   @async.with_task_group() <| group => {
     let (reader, writer) = @io.pipe()
@@ -26,16 +26,16 @@ async fn with_delayed_input(
       @async.sleep(delay)
       writer.write(second)
     }
-    f(reader)
+    f(EventReader::new(reader))
     reader.close()
   }
 }
 
 ///|
 async test "decode printable ascii" {
-  with_input(b"a", reader => {
+  with_input(b"a", events => {
     @debug.assert_eq(
-      @input.read_event(reader),
+      events.read_event(),
       @input.Key(@input.KeyEvent::new(@input.Char('a'), text="a")),
     )
   })
@@ -43,9 +43,9 @@ async test "decode printable ascii" {
 
 ///|
 async test "flush escape key" {
-  with_delayed_input(b"\x1b", b"", 50, reader => {
+  with_delayed_input(b"\x1b", b"", 50, events => {
     @debug.assert_eq(
-      @input.read_event(reader, esc_timeout=10),
+      events.read_event(esc_timeout=10),
       @input.Key(@input.KeyEvent::new(@input.Escape)),
     )
   })
@@ -53,9 +53,9 @@ async test "flush escape key" {
 
 ///|
 async test "decode split csi arrow" {
-  with_delayed_input(b"\x1b[", b"A", 5, reader => {
+  with_delayed_input(b"\x1b[", b"A", 5, events => {
     @debug.assert_eq(
-      @input.read_event(reader, esc_timeout=50),
+      events.read_event(esc_timeout=50),
       @input.Key(@input.KeyEvent::new(@input.Up)),
     )
   })
@@ -63,9 +63,9 @@ async test "decode split csi arrow" {
 
 ///|
 async test "decode csi tilde key" {
-  with_input(b"\x1b[3~", reader => {
+  with_input(b"\x1b[3~", events => {
     @debug.assert_eq(
-      @input.read_event(reader),
+      events.read_event(),
       @input.Key(@input.KeyEvent::new(@input.Delete)),
     )
   })
@@ -73,9 +73,9 @@ async test "decode csi tilde key" {
 
 ///|
 async test "decode alt key" {
-  with_input(b"\x1bx", reader => {
+  with_input(b"\x1bx", events => {
     @debug.assert_eq(
-      @input.read_event(reader),
+      events.read_event(),
       @input.Key(
         @input.KeyEvent::new(
           @input.Char('x'),
@@ -88,9 +88,9 @@ async test "decode alt key" {
 
 ///|
 async test "flush incomplete csi as unknown" {
-  with_delayed_input(b"\x1b[12;", b"", 50, reader => {
+  with_delayed_input(b"\x1b[12;", b"", 50, events => {
     @debug.assert_eq(
-      @input.read_event(reader, esc_timeout=10),
+      events.read_event(esc_timeout=10),
       @input.Unknown(b"\x1b[12;"),
     )
   })
@@ -98,13 +98,13 @@ async test "flush incomplete csi as unknown" {
 
 ///|
 async test "decode multiple events with repeated calls" {
-  with_input(b"a\r", reader => {
+  with_input(b"a\r", events => {
     @debug.assert_eq(
-      @input.read_event(reader),
+      events.read_event(),
       @input.Key(@input.KeyEvent::new(@input.Char('a'), text="a")),
     )
     @debug.assert_eq(
-      @input.read_event(reader),
+      events.read_event(),
       @input.Key(@input.KeyEvent::new(@input.Enter)),
     )
   })
@@ -112,11 +112,25 @@ async test "decode multiple events with repeated calls" {
 
 ///|
 async test "decode unsupported csi as unknown and leaves following bytes buffered" {
-  with_input(b"\x1b[999~a", reader => {
-    @debug.assert_eq(@input.read_event(reader), @input.Unknown(b"\x1b[999~"))
+  with_input(b"\x1b[999~a", events => {
+    @debug.assert_eq(events.read_event(), @input.Unknown(b"\x1b[999~"))
     @debug.assert_eq(
-      @input.read_event(reader),
+      events.read_event(),
       @input.Key(@input.KeyEvent::new(@input.Char('a'), text="a")),
+    )
+  })
+}
+
+///|
+async test "decode repeated escape as two escape events" {
+  with_delayed_input(b"\x1b\x1b", b"", 50, events => {
+    @debug.assert_eq(
+      events.read_event(esc_timeout=10),
+      @input.Key(@input.KeyEvent::new(@input.Escape)),
+    )
+    @debug.assert_eq(
+      events.read_event(esc_timeout=10),
+      @input.Key(@input.KeyEvent::new(@input.Escape)),
     )
   })
 }

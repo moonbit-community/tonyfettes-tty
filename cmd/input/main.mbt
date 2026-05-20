@@ -89,6 +89,7 @@ fn describe_key(key : @tty_input.KeyEvent) -> String {
 
 ///|
 async fn run_input_buffer() -> Unit {
+  let events = @tty.stdin.event_reader()
   let buffer : Array[Byte] = []
   writeln("input buffer demo")
   writeln(
@@ -96,7 +97,7 @@ async fn run_input_buffer() -> Unit {
   )
   redraw_input(buffer, "")
   while true {
-    let event = @tty.stdin.read_event(esc_timeout=esc_timeout_ms) catch {
+    let event = events.read_event(esc_timeout=esc_timeout_ms) catch {
       @async/io.ReaderClosed => break
       error => raise error
     }

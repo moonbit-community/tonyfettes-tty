@@ -2,43 +2,110 @@
 const Esc : Byte = b'\x1b'
 
 ///|
-pub async fn[R : @io.Reader] read_event(
-  reader : R,
+const EventReaderBufferSize : Int = 8
+
+///|
+struct EventReader {
+  reader : &@io.Reader
+  data : FixedArray[Byte]
+  mut head : Int
+  mut tail : Int
+}
+
+///|
+pub fn EventReader::new(reader : &@io.Reader) -> EventReader {
+  EventReader::{
+    reader,
+    data: FixedArray::make(EventReaderBufferSize, b'\x00'),
+    head: 0,
+    tail: 0,
+  }
+}
+
+///|
+pub async fn EventReader::read_event(
+  self : EventReader,
   esc_timeout? : Int = 50,
 ) -> Event {
-  let byte = read_byte(reader)
+  guard self.read_byte() is Some(byte) else { abort("unreachable") }
   if byte == Esc {
     let buffer = @buffer.new()
     buffer.write_byte(Esc)
-    read_escape(reader, buffer, esc_timeout)
+    read_escape(self, buffer, esc_timeout)
   } else {
     byte_event(byte)
   }
 }
 
 ///|
-async fn[R : @io.Reader] read_byte(reader : R) -> Byte {
-  reader.read_exactly(1)[0]
+async fn EventReader::read_byte(self : EventReader, timeout? : Int) -> Byte? {
+  if self.head < self.tail {
+    let byte = self.data[self.head]
+    self.head += 1
+    if self.head == self.tail {
+      self.head = 0
+      self.tail = 0
+    }
+    Some(byte)
+  } else {
+    match timeout {
+      Some(timeout) =>
+        @async.with_timeout_opt(timeout, () => self.read_byte_raw())
+      None => Some(self.read_byte_raw())
+    }
+  }
 }
 
 ///|
-async fn[R : @io.Reader] read_byte_timeout(reader : R, timeout~ : Int) -> Byte? {
-  @async.with_timeout_opt(timeout, () => read_byte(reader))
+async fn EventReader::read_byte_raw(self : EventReader) -> Byte {
+  self.reader.read_exactly(1)[0]
 }
 
 ///|
-async fn[R : @io.Reader] read_escape(
-  reader : R,
+fn EventReader::unread_byte(self : EventReader, byte : Byte) -> Unit {
+  if self.tail == self.data.length() {
+    let len = self.tail - self.head
+    if self.head > 0 {
+      self.data.blit_to(self.data, src_offset=self.head, len~)
+      self.head = 0
+      self.tail = len
+    }
+  }
+  guard self.tail < self.data.length()
+  self.data[self.tail] = byte
+  self.tail += 1
+}
+
+///|
+async fn read_escape(
+  reader : EventReader,
   buffer : @buffer.Buffer,
   esc_timeout : Int,
 ) -> Event {
-  guard read_byte_timeout(reader, timeout=esc_timeout) is Some(byte) else {
+  guard reader.read_byte(timeout=esc_timeout) is Some(byte) else {
     Key(KeyEvent::new(Escape))
   }
-  buffer.write_byte(byte)
+  match byte {
+    Esc => {
+      reader.unread_byte(byte)
+      Key(KeyEvent::new(Escape))
+    }
+    _ => {
+      buffer.write_byte(byte)
+      read_escape_tail(reader, buffer, byte, esc_timeout)
+    }
+  }
+}
+
+///|
+async fn read_escape_tail(
+  reader : EventReader,
+  buffer : @buffer.Buffer,
+  byte : Byte,
+  esc_timeout : Int,
+) -> Event {
   match byte {
     b'[' => read_csi(reader, buffer, esc_timeout~)
-    Esc => Key(KeyEvent::new(Escape))
     0x20..<0x7f as byte =>
       Key(
         KeyEvent::new(
@@ -51,14 +118,14 @@ async fn[R : @io.Reader] read_escape(
 }
 
 ///|
-async fn[R : @io.Reader] read_csi(
-  reader : R,
+async fn read_csi(
+  reader : EventReader,
   buffer : @buffer.Buffer,
   esc_timeout~ : Int,
 ) -> Event {
   let mut seen_intermediate = false
   for ;; {
-    guard read_byte_timeout(reader, timeout=esc_timeout) is Some(byte) else {
+    guard reader.read_byte(timeout=esc_timeout) is Some(byte) else {
       return Unknown(buffer.to_bytes())
     }
     buffer.write_byte(byte)
