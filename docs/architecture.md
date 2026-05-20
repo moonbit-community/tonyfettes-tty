@@ -72,6 +72,10 @@ The decoder should stay focused on terminal input events. Higher-level line
 editing, Unicode grapheme management, completion queues, history, and prompt
 redraw belong in a caller or a future higher-level package.
 
+`KeyEvent::text` is decoded terminal text, not a promise about grapheme
+clusters, display columns, or cursor movement. Callers that edit visible text
+must segment and measure that text at their own layer.
+
 ### `cmd`
 
 `cmd/*` packages are manual validation tools:
@@ -83,6 +87,11 @@ redraw belong in a caller or a future higher-level package.
 These commands can carry small UI experiments, but public API decisions should
 be recorded in `docs/architecture.md` or an active task plan before being moved
 into library packages.
+
+`cmd/input` currently owns a demo-only grapheme-aware input buffer. It uses
+`kawaz/grapheme` for UAX #29 grapheme clusters and `rami3l/unicodewidth` for
+terminal display width. This validates Unicode editing behavior in a real
+terminal while keeping `tonyfettes/tty/input` below line-editor scope.
 
 ## Cross-Platform Model
 

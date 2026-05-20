@@ -21,7 +21,7 @@ This board tracks implementation direction for `tonyfettes/tty`. Use
 | IN-1 | done | input event reader and common key sequences | `docs/plans/2026-05-20-input-event-reader.md` | `EventReader` decodes common keys while preserving unknown sequences | `moon fmt`, `moon check`, `moon test input`, `moon check cmd/input`, `moon info`, manual `cmd/input` run |
 | IN-2 | done | UTF-8 text decoding via core utf8 | `docs/plans/2026-05-20-utf8-input-decoding.md`, `input/` | non-ASCII text is decoded with `moonbitlang/core/encoding/utf8` without a local utf8 package | `moon fmt`, `moon check`, `moon test input`, `moon info` |
 | IN-5 | done | event reader buffer window | `docs/plans/2026-05-20-event-reader-buffer-window.md`, `input/` | `EventReader` uses one dynamic ordered byte window for current-event bytes and unread bytes | `moon fmt`, `moon check`, `moon test input`, `moon info` |
-| IN-3 | todo | grapheme-aware demo input buffer | `cmd/input` or future higher-level package | demo can edit CJK and emoji text without byte-level corruption | task plan required |
+| IN-3 | done | grapheme-aware demo input buffer | `docs/plans/2026-05-20-grapheme-input-buffer.md`, `cmd/input` | demo can edit CJK and emoji text without byte-level corruption | `moon test cmd/input`, `moon test`, `moon check`, `moon info` |
 | IN-4 | todo | bracketed paste boundary | `input/`, `vt/`, `cmd/input` | paste mode can be enabled, decoded, and bounded without unbounded memory surprises | task plan required |
 | VT-3 | todo | additional ECMA-48 sequences needed by demos | `vt/` | helpers are grouped by behavior and documented with standard references | task plan required |
 | MVP-1 | todo | Codex-like primary-screen demo | `cmd/` | scrollback stays in terminal primary screen and an input buffer redraws reliably | task plan required |
@@ -31,5 +31,6 @@ This board tracks implementation direction for `tonyfettes/tty`. Use
 - Do not start `IN-2` until `IN-1` has a committed public event shape.
 - Keep `vt` byte-only unless a plan explicitly introduces platform-dispatched
   output operations.
-- Keep `cmd/input` as a demo until a line-editing abstraction has its own plan.
+- Keep `cmd/input` as a demo. Its grapheme-aware buffer validates higher-level
+  editing behavior but does not create a public line-editing API.
 - When a task touches `.mbti`, include public API audit notes in its plan.
