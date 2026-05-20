@@ -29,13 +29,13 @@ operations:
 - stdio handles: `stdin`, `stdout`, `stderr`
 - `/dev/tty` style open operations where supported
 - `Tty`, a narrow handle that coordinates one terminal input stream and output
-  stream for request/response protocols
+  stream for terminal capabilities and request/response protocols
 - `isatty`
-- output-side terminal window size queries
-- coordinated cursor position report queries
-- output-side command helpers for common screen, cursor, and style operations
-- input state operations such as `Input::get_state`, `Input::set_state`, and raw
-  mode helpers
+- terminal window size queries through `Tty`
+- coordinated cursor position report queries through `Tty`
+- command helpers for common screen, cursor, and style operations through `Tty`
+- terminal state operations such as `Tty::get_state`, `Tty::set_state`, and raw
+  mode helpers through `Tty`
 - async read/write through the package's `Input` and `Output` wrappers
 
 Platform FFI belongs here because raw mode, terminal dimensions, and handle
@@ -87,8 +87,8 @@ It should not:
 - decide whether colors should be enabled
 - mutate terminal palettes or query terminal color state
 
-Root `Output` methods map color values onto SGR byte sequences when writing to
-an output stream. Raw byte callers should use low-level `vt` helpers directly.
+Root `Tty` methods map color values onto SGR byte sequences when writing to a
+terminal. Raw byte callers should use low-level `vt` helpers directly.
 
 Root callers that want decoded terminal input events should use
 `Tty::read_event` so terminal request/response side channels and normal input
@@ -154,26 +154,24 @@ The public API should describe terminal capabilities in terms of input, output,
 state, and events. The implementation can choose fd-based or handle-based
 storage per target.
 
-Window size is exposed as an output-side query because it describes the visible
-screen buffer used for painting. Resize notification is deliberately separate
-from size querying and should not be added without a plan for Unix signal and
-Windows console-event ownership.
+Window size is exposed through `Tty` because callers usually need the visible
+screen buffer size while coordinating terminal input and output. The current
+implementation queries the output-side handle. Resize notification is
+deliberately separate from size querying and should not be added without a plan
+for Unix signal and Windows console-event ownership.
 
 ## Raw Mode
 
-Raw mode is input-side terminal state. It can be exposed through `Input` because
-the operation applies to the terminal device behind that input handle.
-
-`Tty` can also expose raw-mode scoped helpers by delegating to its `Input`. The
-state still belongs to the input side; `Tty` exists so callers that also need
-terminal responses can share one `EventReader` buffer with normal input decoding.
+Raw mode is input-side terminal state, but root callers should access it through
+`Tty` so terminal capabilities share one user-facing handle. The implementation
+still applies raw mode to the input side behind `Tty`.
 
 State snapshots should be explicit:
 
-- `Input::get_state` captures current terminal state
+- `Tty::get_state` captures current terminal state
 - `State::make_raw` derives a raw-mode state from a captured state
-- `Input::set_state` applies a state and returns the previous state
-- scoped helpers such as `Input::with_raw_mode` should restore captured state
+- `Tty::set_state` applies a state and returns the previous state
+- scoped helpers such as `Tty::with_raw_mode` should restore captured state
 
 Nested raw-mode calls are valid only when each caller restores the state it
 captured. The package should not hide raw mode behind one global singleton.

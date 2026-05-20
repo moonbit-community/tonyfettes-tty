@@ -40,6 +40,7 @@ async fn run_raw_loop() -> Unit {
 
 ///|
 async fn main {
+  let tty = @tty.Tty::stdio()
   write_line("raw-mode demo")
   write_line(
     "The program will switch stdin to raw mode and print one byte per key press.",
@@ -52,20 +53,20 @@ async fn main {
   write_line("If the terminal is left raw after a crash, run: stty sane")
   write_line("")
   write_line("entering raw mode...")
-  let state = @tty.stdin.enter_raw_mode()
+  let state = tty.enter_raw_mode()
   let mut restored = false
   try {
     write_line("raw mode active")
     run_raw_loop()
   } catch {
     error => {
-      @tty.stdin.leave_raw_mode(state)
+      tty.leave_raw_mode(state)
       restored = true
       raise error
     }
   }
   if !restored {
-    @tty.stdin.leave_raw_mode(state)
+    tty.leave_raw_mode(state)
   }
   write_line("terminal restored")
 }

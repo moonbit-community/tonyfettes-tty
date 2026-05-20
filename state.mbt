@@ -3,7 +3,7 @@
 struct State(Bytes)
 
 ///|
-pub fn Input::get_state(self : Self) -> State raise @os_error.OSError {
+fn Input::get_state(self : Self) -> State raise @os_error.OSError {
   let state = State::new()
   let rc = tty_get_state(self.fd(), state)
   if rc < 0 {
@@ -13,7 +13,7 @@ pub fn Input::get_state(self : Self) -> State raise @os_error.OSError {
 }
 
 ///|
-pub fn Input::set_state(
+fn Input::set_state(
   self : Self,
   state : State,
 ) -> State raise @os_error.OSError {
@@ -33,7 +33,7 @@ pub fn State::make_raw(self : Self) -> State {
 }
 
 ///|
-pub fn Input::enter_raw_mode(self : Self) -> State raise @os_error.OSError {
+fn Input::enter_raw_mode(self : Self) -> State raise @os_error.OSError {
   let old_state = self.get_state()
   let raw_state = old_state.make_raw()
   let rc = tty_set_state(self.fd(), raw_state)
@@ -44,7 +44,7 @@ pub fn Input::enter_raw_mode(self : Self) -> State raise @os_error.OSError {
 }
 
 ///|
-pub fn Input::leave_raw_mode(
+fn Input::leave_raw_mode(
   self : Self,
   state : State,
 ) -> Unit raise @os_error.OSError {
@@ -55,7 +55,7 @@ pub fn Input::leave_raw_mode(
 }
 
 ///|
-pub async fn[T] Input::with_raw_mode(self : Self, f : async () -> T) -> T {
+async fn[T] Input::with_raw_mode(self : Self, f : async () -> T) -> T {
   let state = self.enter_raw_mode()
   try f() catch {
     error => {

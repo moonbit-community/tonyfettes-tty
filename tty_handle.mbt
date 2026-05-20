@@ -50,6 +50,32 @@ pub async fn Tty::read_event(
 }
 
 ///|
+pub fn Tty::get_state(self : Self) -> State raise @os_error.OSError {
+  self.input.get_state()
+}
+
+///|
+pub fn Tty::set_state(
+  self : Self,
+  state : State,
+) -> State raise @os_error.OSError {
+  self.input.set_state(state)
+}
+
+///|
+pub fn Tty::enter_raw_mode(self : Self) -> State raise @os_error.OSError {
+  self.input.enter_raw_mode()
+}
+
+///|
+pub fn Tty::leave_raw_mode(
+  self : Self,
+  state : State,
+) -> Unit raise @os_error.OSError {
+  self.input.leave_raw_mode(state)
+}
+
+///|
 pub async fn[T] Tty::with_raw_mode(self : Self, f : async () -> T) -> T {
   self.input.with_raw_mode(f)
 }
@@ -67,6 +93,21 @@ pub async fn Tty::write_string(self : Self, string : String) -> Unit {
 ///|
 pub fn Tty::window_size(self : Self) -> WindowSize raise @os_error.OSError {
   self.output.window_size()
+}
+
+///|
+pub async fn Tty::enter_alt_screen(self : Self) -> Unit {
+  self.output.enter_alt_screen()
+}
+
+///|
+pub async fn Tty::leave_alt_screen(self : Self) -> Unit {
+  self.output.leave_alt_screen()
+}
+
+///|
+pub async fn[T] Tty::with_alt_screen(self : Self, f : async () -> T) -> T {
+  self.output.with_alt_screen(f)
 }
 
 ///|

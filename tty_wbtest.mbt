@@ -103,28 +103,33 @@ async test "file output wrapper delegates writes" {
 }
 
 ///|
-async test "file output terminal commands write sequences" {
-  let path = "_build/tty_file_output_commands_test"
+async test "file tty terminal commands write sequences" {
+  let input_path = "_build/tty_file_commands_input_test"
+  let output_path = "_build/tty_file_output_commands_test"
+  @async/fs.write_file(input_path, b"", create_mode=CreateOrTruncate)
   {
+    let input = Input::File(@async/fs.open(input_path, mode=ReadOnly))
     let output = Output::File(
-      @async/fs.open(path, mode=WriteOnly, create_mode=CreateOrTruncate),
+      @async/fs.open(output_path, mode=WriteOnly, create_mode=CreateOrTruncate),
     )
-    defer output.close()
-    output.enter_alt_screen()
-    output.hide_cursor()
-    output.set_foreground(@color.Basic(@color.Red))
-    output.reset_foreground()
-    output.set_background(@color.Indexed(42))
-    output.reset_background()
-    output.reset_style()
-    output.show_cursor()
-    output.leave_alt_screen()
+    let tty = Tty::new(input, output)
+    defer tty.close()
+    tty.enter_alt_screen()
+    tty.hide_cursor()
+    tty.set_foreground(@color.Basic(@color.Red))
+    tty.reset_foreground()
+    tty.set_background(@color.Indexed(42))
+    tty.reset_background()
+    tty.reset_style()
+    tty.show_cursor()
+    tty.leave_alt_screen()
   }
   inspect(
-    @async/fs.read_file(path).text(),
+    @async/fs.read_file(output_path).text(),
     content="\u{1B}[?1049h\u{1B}[?25l\u{1B}[31m\u{1B}[39m\u{1B}[48;5;42m\u{1B}[49m\u{1B}[0m\u{1B}[?25h\u{1B}[?1049l",
   )
-  @async/fs.remove(path)
+  @async/fs.remove(input_path)
+  @async/fs.remove(output_path)
 }
 
 ///|
@@ -157,33 +162,43 @@ async test "tty query cursor position coordinates input and output" {
 }
 
 ///|
-async test "file output with alt screen restores on success" {
-  let path = "_build/tty_file_output_with_alt_screen_test"
+async test "file tty with alt screen restores on success" {
+  let input_path = "_build/tty_file_alt_screen_input_test"
+  let output_path = "_build/tty_file_output_with_alt_screen_test"
+  @async/fs.write_file(input_path, b"", create_mode=CreateOrTruncate)
   {
+    let input = Input::File(@async/fs.open(input_path, mode=ReadOnly))
     let output = Output::File(
-      @async/fs.open(path, mode=WriteOnly, create_mode=CreateOrTruncate),
+      @async/fs.open(output_path, mode=WriteOnly, create_mode=CreateOrTruncate),
     )
-    defer output.close()
-    output.with_alt_screen(() => output.write("body"))
+    let tty = Tty::new(input, output)
+    defer tty.close()
+    tty.with_alt_screen(() => tty.write("body"))
   }
   inspect(
-    @async/fs.read_file(path).text(),
+    @async/fs.read_file(output_path).text(),
     content="\u{1B}[?1049hbody\u{1B}[?1049l",
   )
-  @async/fs.remove(path)
+  @async/fs.remove(input_path)
+  @async/fs.remove(output_path)
 }
 
 ///|
-async test "window size rejects non tty output" {
-  let path = "_build/tty_window_size_non_tty_test"
+async test "tty window size rejects non tty output" {
+  let input_path = "_build/tty_window_size_input_test"
+  let output_path = "_build/tty_window_size_non_tty_test"
+  @async/fs.write_file(input_path, b"", create_mode=CreateOrTruncate)
   {
+    let input = Input::File(@async/fs.open(input_path, mode=ReadOnly))
     let output = Output::File(
-      @async/fs.open(path, mode=WriteOnly, create_mode=CreateOrTruncate),
+      @async/fs.open(output_path, mode=WriteOnly, create_mode=CreateOrTruncate),
     )
-    defer output.close()
-    assert_true((try? output.window_size()) is Err(_))
+    let tty = Tty::new(input, output)
+    defer tty.close()
+    assert_true((try? tty.window_size()) is Err(_))
   }
-  @async/fs.remove(path)
+  @async/fs.remove(input_path)
+  @async/fs.remove(output_path)
 }
 
 ///|
@@ -221,16 +236,24 @@ test "state buffer can be made raw" {
 }
 
 ///|
-async test "state operations reject non tty file" {
-  let path = "_build/tty_state_non_tty_test"
-  @async/fs.write_file(path, b"x", create_mode=CreateOrTruncate)
-  let input = Input::File(@async/fs.open(path, mode=ReadOnly))
-  defer input.close()
-  let state = State::new()
-  assert_true((try? input.get_state()) is Err(_))
-  assert_true((try? input.set_state(state)) is Err(_))
-  assert_true((try? input.enter_raw_mode()) is Err(_))
-  assert_true((try? input.leave_raw_mode(state)) is Err(_))
-  assert_true((try? input.with_raw_mode(() => ())) is Err(_))
-  @async/fs.remove(path)
+async test "tty state operations reject non tty file" {
+  let input_path = "_build/tty_state_non_tty_input_test"
+  let output_path = "_build/tty_state_non_tty_output_test"
+  @async/fs.write_file(input_path, b"x", create_mode=CreateOrTruncate)
+  {
+    let input = Input::File(@async/fs.open(input_path, mode=ReadOnly))
+    let output = Output::File(
+      @async/fs.open(output_path, mode=WriteOnly, create_mode=CreateOrTruncate),
+    )
+    let tty = Tty::new(input, output)
+    defer tty.close()
+    let state = State::new()
+    assert_true((try? tty.get_state()) is Err(_))
+    assert_true((try? tty.set_state(state)) is Err(_))
+    assert_true((try? tty.enter_raw_mode()) is Err(_))
+    assert_true((try? tty.leave_raw_mode(state)) is Err(_))
+    assert_true((try? tty.with_raw_mode(() => ())) is Err(_))
+  }
+  @async/fs.remove(input_path)
+  @async/fs.remove(output_path)
 }

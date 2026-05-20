@@ -28,32 +28,16 @@ pub struct CursorPosition {
 
 type Input
 pub fn Input::close(Self) -> Unit
-pub fn Input::enter_raw_mode(Self) -> State raise @os_error.OSError
 pub fn Input::fd(Self) -> Int
-pub fn Input::get_state(Self) -> State raise @os_error.OSError
-pub fn Input::leave_raw_mode(Self, State) -> Unit raise @os_error.OSError
 pub async fn Input::open() -> Self
 pub async fn Input::read(Self, FixedArray[Byte], offset? : Int, max_len? : Int) -> Int
 pub async fn Input::read_byte(Self) -> Byte
 pub async fn Input::read_some(Self) -> Bytes?
-pub fn Input::set_state(Self, State) -> State raise @os_error.OSError
-pub async fn[T] Input::with_raw_mode(Self, async () -> T) -> T
 
 type Output
 pub fn Output::close(Self) -> Unit
-pub async fn Output::enter_alt_screen(Self) -> Unit
 pub fn Output::fd(Self) -> Int
-pub async fn Output::hide_cursor(Self) -> Unit
-pub async fn Output::leave_alt_screen(Self) -> Unit
 pub async fn Output::open() -> Self
-pub async fn Output::reset_background(Self) -> Unit
-pub async fn Output::reset_foreground(Self) -> Unit
-pub async fn Output::reset_style(Self) -> Unit
-pub async fn Output::set_background(Self, @color.Color) -> Unit
-pub async fn Output::set_foreground(Self, @color.Color) -> Unit
-pub async fn Output::show_cursor(Self) -> Unit
-pub fn Output::window_size(Self) -> WindowSize raise @os_error.OSError
-pub async fn[T] Output::with_alt_screen(Self, async () -> T) -> T
 pub async fn Output::write(Self, &@io.Data) -> Unit
 pub async fn Output::write_string(Self, String) -> Unit
 
@@ -62,7 +46,12 @@ pub fn State::make_raw(Self) -> Self
 
 type Tty
 pub fn Tty::close(Self) -> Unit
+pub async fn Tty::enter_alt_screen(Self) -> Unit
+pub fn Tty::enter_raw_mode(Self) -> State raise @os_error.OSError
+pub fn Tty::get_state(Self) -> State raise @os_error.OSError
 pub async fn Tty::hide_cursor(Self) -> Unit
+pub async fn Tty::leave_alt_screen(Self) -> Unit
+pub fn Tty::leave_raw_mode(Self, State) -> Unit raise @os_error.OSError
 pub async fn Tty::open() -> Self
 pub async fn Tty::query_cursor_position(Self, timeout_ms? : Int) -> CursorPosition?
 pub async fn Tty::read_event(Self, esc_timeout? : Int) -> @input.Event
@@ -71,9 +60,11 @@ pub async fn Tty::reset_foreground(Self) -> Unit
 pub async fn Tty::reset_style(Self) -> Unit
 pub async fn Tty::set_background(Self, @color.Color) -> Unit
 pub async fn Tty::set_foreground(Self, @color.Color) -> Unit
+pub fn Tty::set_state(Self, State) -> State raise @os_error.OSError
 pub async fn Tty::show_cursor(Self) -> Unit
 pub fn Tty::stdio() -> Self
 pub fn Tty::window_size(Self) -> WindowSize raise @os_error.OSError
+pub async fn[T] Tty::with_alt_screen(Self, async () -> T) -> T
 pub async fn[T] Tty::with_raw_mode(Self, async () -> T) -> T
 pub async fn Tty::write(Self, &@io.Data) -> Unit
 pub async fn Tty::write_string(Self, String) -> Unit

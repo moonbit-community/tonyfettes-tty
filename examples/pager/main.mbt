@@ -64,8 +64,8 @@ fn clamp(value : Int, min : Int, max : Int) -> Int {
 }
 
 ///|
-fn terminal_size() -> PagerSize {
-  try @tty.stdout.window_size() catch {
+fn terminal_size(tty : @tty.Tty) -> PagerSize {
+  try tty.window_size() catch {
     _ => { rows: 24, cols: 80 }
   } noraise {
     size =>
@@ -319,21 +319,21 @@ async fn redraw(
 }
 
 ///|
-async fn restore_terminal() -> Unit {
-  @tty.stdout.write(@tty/vt.reset_top_bottom_margins)
-  @tty.stdout.write(@tty/vt.show_cursor)
+async fn restore_terminal(tty : @tty.Tty) -> Unit {
+  tty.write(@tty/vt.reset_top_bottom_margins)
+  tty.show_cursor()
 }
 
 ///|
-async fn leave_pager(full_screen : Bool) -> Unit {
+async fn leave_pager(tty : @tty.Tty, full_screen : Bool) -> Unit {
   if full_screen {
-    let size = terminal_size()
-    restore_terminal()
-    @tty.stdout.write(@tty/vt.cursor_position(status_row(size), 1))
+    let size = terminal_size(tty)
+    restore_terminal(tty)
+    tty.write(@tty/vt.cursor_position(status_row(size), 1))
   } else {
-    @tty.stdout.write(@tty/vt.show_cursor)
+    tty.show_cursor()
   }
-  @tty.stdout.write("\r\n")
+  tty.write("\r\n")
 }
 
 ///|
@@ -342,7 +342,7 @@ async fn run_pager(
   title : String,
   lines : Array[String],
 ) -> Unit {
-  let mut size = terminal_size()
+  let mut size = terminal_size(tty)
   let mut offset = clamp_offset(0, lines, body_rows(size))
   let mut full_screen = render_initial(title, lines, offset, size)
   while true {
@@ -372,7 +372,7 @@ async fn run_pager(
     if quit {
       break
     }
-    size = terminal_size()
+    size = terminal_size(tty)
     next_offset = clamp_offset(next_offset, lines, body_rows(size))
     if full_screen {
       redraw(title, lines, old_offset, next_offset, old_size, size)
@@ -383,16 +383,16 @@ async fn run_pager(
     }
     offset = next_offset
   }
-  leave_pager(full_screen)
+  leave_pager(tty, full_screen)
 }
 
 ///|
 async fn with_pager_terminal(title : String, lines : Array[String]) -> Unit {
   let tty = @tty.Tty::stdio()
-  @tty.stdout.write(@tty/vt.hide_cursor)
+  tty.hide_cursor()
   try tty.with_raw_mode(() => run_pager(tty, title, lines)) catch {
     error => {
-      restore_terminal()
+      restore_terminal(tty)
       raise error
     }
   } noraise {

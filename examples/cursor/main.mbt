@@ -1,20 +1,21 @@
 ///|
 async fn main {
-  with_screen(() => @tty.stdin.with_raw_mode(run_cursor_demo))
+  let tty = @tty.Tty::stdio()
+  with_screen(tty, () => tty.with_raw_mode(() => run_cursor_demo(tty)))
 }
 
 ///|
-async fn[T] with_screen(f : async () -> T) -> T {
-  @tty.stdout.write(@tty/vt.enter_alt_screen)
-  @tty.stdout.write(@tty/vt.hide_cursor)
+async fn[T] with_screen(tty : @tty.Tty, f : async () -> T) -> T {
+  tty.enter_alt_screen()
+  tty.hide_cursor()
   try f() catch {
     error => {
-      restore_screen()
+      restore_screen(tty)
       raise error
     }
   } noraise {
     value => {
-      restore_screen()
+      restore_screen(tty)
       value
     }
   }
@@ -33,9 +34,9 @@ struct Anchor {
 }
 
 ///|
-async fn restore_screen() -> Unit {
-  @tty.stdout.write(@tty/vt.show_cursor)
-  @tty.stdout.write(@tty/vt.leave_alt_screen)
+async fn restore_screen(tty : @tty.Tty) -> Unit {
+  tty.show_cursor()
+  tty.leave_alt_screen()
 }
 
 ///|
@@ -50,7 +51,7 @@ fn clamp(value : Int, min : Int, max : Int) -> Int {
 }
 
 ///|
-async fn draw_box(tty : @tty.Output, anchor : Anchor, size : Size) -> Unit {
+async fn draw_box(tty : @tty.Tty, anchor : Anchor, size : Size) -> Unit {
   tty.write(@tty/vt.cursor_position(anchor.top, anchor.left))
   tty.write("+\{String::make(size.width, '-')}+")
   for row in 1..<=size.height {
@@ -62,25 +63,20 @@ async fn draw_box(tty : @tty.Output, anchor : Anchor, size : Size) -> Unit {
 }
 
 ///|
-async fn draw_marker(tty : @tty.Output, pos : Anchor, x : Int, y : Int) -> Unit {
+async fn draw_marker(tty : @tty.Tty, pos : Anchor, x : Int, y : Int) -> Unit {
   tty.write(@tty/vt.cursor_position(pos.top + 1 + y, pos.left + 1 + x))
   tty.write("@")
 }
 
 ///|
-async fn erase_marker(
-  tty : @tty.Output,
-  pos : Anchor,
-  x : Int,
-  y : Int,
-) -> Unit {
+async fn erase_marker(tty : @tty.Tty, pos : Anchor, x : Int, y : Int) -> Unit {
   tty.write(@tty/vt.cursor_position(pos.top + 1 + y, pos.left + 1 + x))
   tty.write(" ")
 }
 
 ///|
 async fn draw_status(
-  tty : @tty.Output,
+  tty : @tty.Tty,
   pos : Anchor,
   size : Size,
   x : Int,
@@ -96,15 +92,15 @@ async fn draw_status(
 }
 
 ///|
-async fn run_cursor_demo() -> Unit {
+async fn run_cursor_demo(tty : @tty.Tty) -> Unit {
   let anchor : Anchor = { top: 2, left: 4 }
   let size : Size = { width: 20, height: 10 }
   let mut x = size.width / 2
   let mut y = size.height / 2
   let mut visible = false
-  draw_box(@tty.stdout, anchor, size)
-  draw_marker(@tty.stdout, anchor, x, y)
-  draw_status(@tty.stdout, anchor, size, x, y, visible)
+  draw_box(tty, anchor, size)
+  draw_marker(tty, anchor, x, y)
+  draw_status(tty, anchor, size, x, y, visible)
   while true {
     let key = @tty.stdin.read_byte()
     if key == b'q' || key == b'Q' || key == b'\x03' {
@@ -113,11 +109,11 @@ async fn run_cursor_demo() -> Unit {
     if key == b'c' || key == b'C' {
       visible = !visible
       if visible {
-        @tty.stdout.write(@tty/vt.show_cursor)
+        tty.show_cursor()
       } else {
-        @tty.stdout.write(@tty/vt.hide_cursor)
+        tty.hide_cursor()
       }
-      draw_status(@tty.stdout, anchor, size, x, y, visible)
+      draw_status(tty, anchor, size, x, y, visible)
       continue
     }
     let old_x = x
@@ -132,9 +128,9 @@ async fn run_cursor_demo() -> Unit {
       x = clamp(x + 1, 0, size.width - 1)
     }
     if x != old_x || y != old_y {
-      erase_marker(@tty.stdout, anchor, old_x, old_y)
-      draw_marker(@tty.stdout, anchor, x, y)
-      draw_status(@tty.stdout, anchor, size, x, y, visible)
+      erase_marker(tty, anchor, old_x, old_y)
+      draw_marker(tty, anchor, x, y)
+      draw_status(tty, anchor, size, x, y, visible)
     }
   }
 }
