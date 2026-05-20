@@ -1,0 +1,11 @@
+import {
+  "moonbitlang/async",
+  "tonyfettes/tty",
+  "tonyfettes/tty/vt/color" @vt_color,
+}
+
+supported_targets = "native"
+
+options(
+  "is-main": true,
+)

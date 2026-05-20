@@ -59,6 +59,30 @@ It should not:
 
 Callers decide when and where to write the returned `Bytes`.
 
+`tonyfettes/tty/vt/internal/seq` owns shared byte builders for CSI and SGR
+sequences used by `vt` and its descendant packages. It is an implementation
+helper, not a user-facing terminal abstraction.
+
+### `vt/color`
+
+`tonyfettes/tty/vt/color` is a pure SGR color byte-sequence package.
+
+It should:
+
+- construct foreground, background, and color reset sequences
+- support ANSI basic/bright colors, indexed 256 colors, and truecolor RGB
+- stay independent from output streams, environment variables, terminfo, and
+  platform FFI
+
+It should not:
+
+- detect terminal color capability
+- decide whether colors should be enabled
+- mutate terminal palettes or query terminal color state
+
+Color capability detection belongs in a future higher-level package or plan
+because it combines tty state, environment policy, and terminal conventions.
+
 ### `input`
 
 `tonyfettes/tty/input` decodes host input bytes into input events.
@@ -88,6 +112,7 @@ must segment and measure that text at their own layer.
 - `cmd/input` validates input decoding and line-buffer experiments
 - `cmd/pager` validates primary-screen paging with a fixed status row and
   scrolling margins
+- `cmd/color` validates SGR color output visually
 
 These commands can carry small UI experiments, but public API decisions should
 be recorded in `docs/architecture.md` or an active task plan before being moved
