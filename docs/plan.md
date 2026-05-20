@@ -1,0 +1,34 @@
+# Execution Plan
+
+This board tracks implementation direction for `tonyfettes/tty`. Use
+`docs/plans/*.md` for task-level notes when a row becomes active.
+
+## Legend
+
+- `done`: implemented in previous work and kept as architectural baseline
+- `active`: current work should update the linked task plan before commit
+- `todo`: planned work that still needs a task plan before implementation
+- `blocked`: waiting on a design decision, upstream API, or platform fact
+
+## Board
+
+| ID | Status | Scope | Target Files | Acceptance | Validation |
+| --- | --- | --- | --- | --- | --- |
+| TTY-1 | done | stdio handles, `isatty`, `/dev/tty` open wrappers | `tty.mbt`, `isatty*.c`, `tty_unix.mbt` | Root package exposes usable `Input` and `Output` handles | `moon check`, targeted root tests |
+| TTY-2 | done | termios state and raw mode | `state.mbt`, `state.c`, `cmd/raw-mode` | callers can capture, make raw, restore, and manually validate raw input | `moon check`, `moon test`, `cmd/raw-mode` manual run |
+| VT-1 | done | cursor movement and visibility sequences | `vt/cursor.mbt`, `vt/cursor_test.mbt`, `cmd/cursor` | cursor helpers emit expected bytes and demo can draw a bounded region | `moon test vt`, `cmd/cursor` manual run |
+| VT-2 | done | line erase and alternate screen helpers | `vt/erase.mbt`, `vt/screen.mbt`, `cmd/input`, `cmd/cursor` | demos can redraw one-line input and restore screen state | `moon test vt`, demo manual run |
+| IN-1 | active | input event reader and common key sequences | `docs/plans/2026-05-20-input-event-reader.md` | `EventReader` decodes common keys while preserving unknown sequences | `moon fmt`, `moon check`, `moon test input`, `moon check cmd/input`, `moon info` |
+| IN-2 | todo | UTF-8 text decoding policy | `input/`, `cmd/input` | non-ASCII text produces a documented event shape without corrupting bytes | task plan required |
+| IN-3 | todo | grapheme-aware demo input buffer | `cmd/input` or future higher-level package | demo can edit CJK and emoji text without byte-level corruption | task plan required |
+| IN-4 | todo | bracketed paste boundary | `input/`, `vt/`, `cmd/input` | paste mode can be enabled, decoded, and bounded without unbounded memory surprises | task plan required |
+| VT-3 | todo | additional ECMA-48 sequences needed by demos | `vt/` | helpers are grouped by behavior and documented with standard references | task plan required |
+| MVP-1 | todo | Codex-like primary-screen demo | `cmd/` | scrollback stays in terminal primary screen and an input buffer redraws reliably | task plan required |
+
+## Current Rules
+
+- Do not start `IN-2` until `IN-1` has a committed public event shape.
+- Keep `vt` byte-only unless a plan explicitly introduces platform-dispatched
+  output operations.
+- Keep `cmd/input` as a demo until a line-editing abstraction has its own plan.
+- When a task touches `.mbti`, include public API audit notes in its plan.

@@ -1,0 +1,148 @@
+# Architecture
+
+This document records stable design boundaries for `tonyfettes/tty`. It is the
+place to preserve decisions that would otherwise be rediscovered in chat.
+
+## Goals
+
+- Provide a low-level, cross-platform terminal foundation for MoonBit programs.
+- Expose enough abstraction for Unix file descriptors and Windows console
+  handles without forcing callers into a full TUI framework.
+- Keep terminal output sequencing, tty state, and input event decoding separated.
+- Support small interactive demos that validate behavior on real terminals.
+
+## Non-Goals
+
+- No screen renderer or terminal emulator state in this package.
+- No widget, layout, pane, scrollback, or text-field framework.
+- No terminfo abstraction until a task plan identifies a concrete need.
+- No platform-specific public API unless the common abstraction cannot express
+  the behavior safely.
+
+## Package Map
+
+### Root Package
+
+The root `tonyfettes/tty` package owns platform tty handles and stateful terminal
+operations:
+
+- stdio handles: `stdin`, `stdout`, `stderr`
+- `/dev/tty` style open operations where supported
+- `isatty`
+- input state operations such as `Input::get_state`, `Input::set_state`, and raw
+  mode helpers
+- async read/write through the package's `Input` and `Output` wrappers
+
+Platform FFI belongs here because raw mode and handle lifetime are properties of
+the underlying terminal device, not of VT byte generation.
+
+### `vt`
+
+`tonyfettes/tty/vt` is a pure byte-sequence package.
+
+It should:
+
+- construct cursor movement sequences
+- construct erase sequences
+- construct screen mode sequences such as alternate-screen enter/leave
+- document the standard or terminal family each sequence comes from
+
+It should not:
+
+- write to `Output`
+- depend on `@io.Writer`
+- remember cursor position
+- model a screen buffer
+
+Callers decide when and where to write the returned `Bytes`.
+
+### `input`
+
+`tonyfettes/tty/input` decodes host input bytes into input events.
+
+Current shape:
+
+- `EventReader` reads from an `@io.Reader`
+- `EventReader::read_event` owns the ESC timeout boundary
+- `Event` currently contains key events and unknown byte sequences
+- unsupported or intentionally unmodeled sequences should become `Unknown`
+  rather than hard errors
+
+The decoder should stay focused on terminal input events. Higher-level line
+editing, Unicode grapheme management, completion queues, history, and prompt
+redraw belong in a caller or a future higher-level package.
+
+### `cmd`
+
+`cmd/*` packages are manual validation tools:
+
+- `cmd/raw-mode` validates raw mode behavior on a real tty
+- `cmd/cursor` validates VT cursor/screen sequences visually
+- `cmd/input` validates input decoding and line-buffer experiments
+
+These commands can carry small UI experiments, but public API decisions should
+be recorded in `docs/architecture.md` or an active task plan before being moved
+into library packages.
+
+## Cross-Platform Model
+
+Unix platforms generally use file descriptors and termios state. Windows may
+need separate console handles and API calls for operations that are VT sequences
+on Unix-like terminals.
+
+The public API should describe terminal capabilities in terms of input, output,
+state, and events. The implementation can choose fd-based or handle-based
+storage per target.
+
+## Raw Mode
+
+Raw mode is input-side terminal state. It can be exposed through `Input` because
+the operation applies to the terminal device behind that input handle.
+
+State snapshots should be explicit:
+
+- `Input::get_state` captures current terminal state
+- `State::make_raw` derives a raw-mode state from a captured state
+- `Input::set_state` applies a state and returns the previous state
+- scoped helpers such as `Input::with_raw_mode` should restore captured state
+
+Nested raw-mode calls are valid only when each caller restores the state it
+captured. The package should not hide raw mode behind one global singleton.
+
+## VT Sequences
+
+VT sequence helpers should prioritize:
+
+- predictable byte output
+- low allocation for common short sequences
+- clear comments identifying ECMA-48, DEC, xterm, or Microsoft Console VT
+  references when relevant
+
+Windows API equivalents can be added later behind output operations only when a
+specific operation needs platform dispatch. Pure `vt` helpers remain byte-only.
+
+## Input Decoding
+
+Input decoding has three boundaries:
+
+- byte acquisition from `@io.Reader`
+- ESC timeout handling
+- conversion from recognized byte patterns to `Event`
+
+The timeout boundary belongs close to byte acquisition because a standalone ESC
+cannot be distinguished from the start of a longer escape sequence without
+waiting. `EventReader` is the current boundary for that behavior.
+
+Unsupported complete sequences should produce `Unknown(Bytes)`. Incomplete ESC
+or CSI sequences can become `Unknown` after timeout. This keeps the public API
+usable before the decoder knows every terminal sequence.
+
+## Public API Rule
+
+Every `.mbti` change is an API decision. Before committing a public API change,
+the active plan should state:
+
+- the external consumer story
+- whether the change is breaking
+- why an internal helper is not enough
+- which demos or tests validate the contract
