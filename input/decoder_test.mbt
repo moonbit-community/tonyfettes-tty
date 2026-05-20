@@ -33,10 +33,14 @@ async fn with_delayed_input(
 
 ///|
 async test "decode printable ascii" {
-  with_input(b"a", events => {
+  with_input(b"aA", events => {
     @debug.assert_eq(
       events.read_event(),
       @input.Key(@input.KeyEvent::new(@input.Char('a'), text="a")),
+    )
+    @debug.assert_eq(
+      events.read_event(),
+      @input.Key(@input.KeyEvent::new(@input.Char('A'), text="A")),
     )
   })
 }
@@ -72,13 +76,106 @@ async test "decode csi tilde key" {
 }
 
 ///|
+async test "decode ss3 cursor and function keys" {
+  with_input(b"\x1bOA\x1bOP", events => {
+    @debug.assert_eq(
+      events.read_event(),
+      @input.Key(@input.KeyEvent::new(@input.Up)),
+    )
+    @debug.assert_eq(
+      events.read_event(),
+      @input.Key(@input.KeyEvent::new(@input.F1)),
+    )
+  })
+}
+
+///|
+async test "decode csi function and home end variants" {
+  with_input(b"\x1b[1~\x1b[8~\x1b[15~\x1b[24~", events => {
+    @debug.assert_eq(
+      events.read_event(),
+      @input.Key(@input.KeyEvent::new(@input.Home)),
+    )
+    @debug.assert_eq(
+      events.read_event(),
+      @input.Key(@input.KeyEvent::new(@input.End)),
+    )
+    @debug.assert_eq(
+      events.read_event(),
+      @input.Key(@input.KeyEvent::new(@input.F5)),
+    )
+    @debug.assert_eq(
+      events.read_event(),
+      @input.Key(@input.KeyEvent::new(@input.F12)),
+    )
+  })
+}
+
+///|
+async test "decode csi key modifiers" {
+  with_input(b"\x1b[1;5A\x1b[3;5~\x1b[1;2P", events => {
+    @debug.assert_eq(
+      events.read_event(),
+      @input.Key(
+        @input.KeyEvent::new(
+          @input.Up,
+          modifiers=@input.KeyModifiers::new(ctrl=true),
+        ),
+      ),
+    )
+    @debug.assert_eq(
+      events.read_event(),
+      @input.Key(
+        @input.KeyEvent::new(
+          @input.Delete,
+          modifiers=@input.KeyModifiers::new(ctrl=true),
+        ),
+      ),
+    )
+    @debug.assert_eq(
+      events.read_event(),
+      @input.Key(
+        @input.KeyEvent::new(
+          @input.F1,
+          modifiers=@input.KeyModifiers::new(shift=true),
+        ),
+      ),
+    )
+  })
+}
+
+///|
 async test "decode alt key" {
-  with_input(b"\x1bx", events => {
+  with_input(b"\x1bx\x1bX", events => {
     @debug.assert_eq(
       events.read_event(),
       @input.Key(
         @input.KeyEvent::new(
           @input.Char('x'),
+          modifiers=@input.KeyModifiers::new(alt=true),
+        ),
+      ),
+    )
+    @debug.assert_eq(
+      events.read_event(),
+      @input.Key(
+        @input.KeyEvent::new(
+          @input.Char('X'),
+          modifiers=@input.KeyModifiers::new(alt=true),
+        ),
+      ),
+    )
+  })
+}
+
+///|
+async test "flush alt left bracket" {
+  with_delayed_input(b"\x1b[", b"", 50, events => {
+    @debug.assert_eq(
+      events.read_event(esc_timeout=10),
+      @input.Key(
+        @input.KeyEvent::new(
+          @input.Char('['),
           modifiers=@input.KeyModifiers::new(alt=true),
         ),
       ),

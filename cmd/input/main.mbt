@@ -54,37 +54,84 @@ fn printable_ascii_byte(ch : Char) -> Byte? {
 }
 
 ///|
-fn describe_key(key : @tty_input.KeyEvent) -> String {
-  let modifier = if key.modifiers.ctrl() {
-    "Ctrl+"
-  } else if key.modifiers.alt() {
-    "Alt+"
-  } else if key.modifiers.shift() {
-    "Shift+"
-  } else if key.modifiers.meta() {
-    "Meta+"
-  } else {
-    ""
+fn byte_to_hex(byte : Byte) -> String {
+  let digits : ReadOnlyArray[Char] = [
+    '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f',
+  ]
+  ['0', 'x', digits[byte.to_int() / 16], digits[byte.to_int() % 16]]
+}
+
+///|
+fn describe_bytes(bytes : Bytes) -> String {
+  let builder = StringBuilder()
+  for i in 0..<bytes.length() {
+    if i > 0 {
+      builder.write_string(" ")
+    }
+    builder.write_string(byte_to_hex(bytes[i]))
   }
-  match key.code {
-    @tty_input.Char(ch) => "event: Key \{modifier}\{ch}"
-    @tty_input.Text => "event: Text"
-    @tty_input.Enter => "event: Enter"
-    @tty_input.Tab => "event: Tab"
-    @tty_input.Backspace => "event: Backspace"
-    @tty_input.Delete => "event: Delete"
-    @tty_input.Escape => "event: Escape"
-    @tty_input.Up => "event: Up"
-    @tty_input.Down => "event: Down"
-    @tty_input.Left => "event: Left"
-    @tty_input.Right => "event: Right"
-    @tty_input.Home => "event: Home"
-    @tty_input.End => "event: End"
-    @tty_input.PageUp => "event: PageUp"
-    @tty_input.PageDown => "event: PageDown"
-    @tty_input.Insert => "event: Insert"
-    @tty_input.F(n) => "event: F\{n}"
+  builder.to_string()
+}
+
+///|
+fn push_printable_ascii_text(buffer : Array[Byte], text : String) -> Unit {
+  text
+  .iter()
+  .each(ch => if printable_ascii_byte(ch) is Some(byte) { buffer.push(byte) })
+}
+
+///|
+fn describe_modifiers(modifiers : @tty/input.KeyModifiers) -> String {
+  let builder = StringBuilder()
+  if modifiers.ctrl() {
+    builder.write_string("Ctrl+")
   }
+  if modifiers.alt() {
+    builder.write_string("Alt+")
+  }
+  if modifiers.shift() {
+    builder.write_string("Shift+")
+  }
+  if modifiers.meta() {
+    builder.write_string("Meta+")
+  }
+  builder.to_string()
+}
+
+///|
+fn describe_key(key : @tty/input.KeyEvent) -> String {
+  let modifier = describe_modifiers(key.modifiers)
+  let name = match key.code {
+    @tty/input.Char(ch) => "\{ch}"
+    @tty/input.Text => "Text"
+    @tty/input.Enter => "Enter"
+    @tty/input.Tab => "Tab"
+    @tty/input.Backspace => "Backspace"
+    @tty/input.Delete => "Delete"
+    @tty/input.Escape => "Escape"
+    @tty/input.Up => "Up"
+    @tty/input.Down => "Down"
+    @tty/input.Left => "Left"
+    @tty/input.Right => "Right"
+    @tty/input.Home => "Home"
+    @tty/input.End => "End"
+    @tty/input.PageUp => "PageUp"
+    @tty/input.PageDown => "PageDown"
+    @tty/input.Insert => "Insert"
+    @tty/input.F1 => "F1"
+    @tty/input.F2 => "F2"
+    @tty/input.F3 => "F3"
+    @tty/input.F4 => "F4"
+    @tty/input.F5 => "F5"
+    @tty/input.F6 => "F6"
+    @tty/input.F7 => "F7"
+    @tty/input.F8 => "F8"
+    @tty/input.F9 => "F9"
+    @tty/input.F10 => "F10"
+    @tty/input.F11 => "F11"
+    @tty/input.F12 => "F12"
+  }
+  "event: Key \{modifier}\{name}"
 }
 
 ///|
@@ -102,31 +149,36 @@ async fn run_input_buffer() -> Unit {
       error => raise error
     }
     match event {
-      @tty_input.Key(key) =>
+      Key(key) =>
         match key.code {
-          @tty_input.Char('c') if key.modifiers.ctrl() => {
+          Char('c') if key.modifiers.ctrl() => {
             @tty.stdout.write("\r")
             @tty.stdout.write(@tty/vt.erase_line_all)
             writeln("exiting")
             break
           }
-          @tty_input.Enter => submit(buffer)
-          @tty_input.Backspace => {
+          Enter => submit(buffer)
+          Backspace => {
             ignore(buffer.pop())
             redraw_input(buffer, "event: Backspace")
           }
-          @tty_input.Char(ch) if !key.modifiers.ctrl() && !key.modifiers.alt() =>
-            match printable_ascii_byte(ch) {
-              Some(byte) => {
-                buffer.push(byte)
-                redraw_input(buffer, describe_key(key))
-              }
-              None => redraw_input(buffer, describe_key(key))
+          Char(ch) if !key.modifiers.ctrl() && !key.modifiers.alt() => {
+            match key.text {
+              Some(text) => push_printable_ascii_text(buffer, text)
+              None =>
+                if printable_ascii_byte(ch) is Some(byte) {
+                  buffer.push(byte)
+                }
             }
+            redraw_input(buffer, describe_key(key))
+          }
           _ => redraw_input(buffer, describe_key(key))
         }
-      @tty_input.Unknown(bytes) =>
-        redraw_input(buffer, "event: Unknown \{bytes.length()} bytes")
+      @tty/input.Unknown(bytes) =>
+        redraw_input(
+          buffer,
+          "event: Unknown \{bytes.length()} bytes [\{describe_bytes(bytes)}]",
+        )
     }
   }
 }

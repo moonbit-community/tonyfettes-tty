@@ -25,6 +25,14 @@ after this plan's acceptance criteria and public API audit are current.
 - A timeout while reading an ESC tail can produce an Escape key or `Unknown`
   depending on the bytes already observed.
 - `cmd/input` is the manual validation surface for interactive terminal input.
+- Legacy printable ASCII does not infer Shift usage from characters. For
+  example, byte `A` becomes `code=Char('A')`, `modifiers=none`, `text="A"`;
+  `ESC A` becomes `code=Char('A')`, `modifiers=Alt`, `text=None`.
+- Shift is reported only when the terminal explicitly encodes it, such as CSI
+  modifier parameters or future enhanced keyboard protocols.
+- `ESC [` is ambiguous: it can be Alt+`[` or the beginning of a CSI sequence.
+  If no CSI body arrives before the ESC timeout, decode it as Alt+`[`. If any
+  CSI body bytes have arrived, keep the timeout result as `Unknown`.
 
 ## References Or Standards
 
@@ -75,6 +83,10 @@ Breaking change:
   and function-key sequences.
 - xterm-style modifier parameters decode Shift, Alt, Ctrl, and Meta into
   `KeyModifiers`.
+- Legacy printable ASCII preserves the received character and does not infer
+  Shift from uppercase letters or punctuation.
+- Alt+`[` decodes after ESC timeout as `Char('[')` plus `Alt`, while longer
+  incomplete CSI sequences remain `Unknown`.
 - `cmd/input` prints explicit F-key names and combined modifiers.
 - Unsupported sequences still produce `Unknown(Bytes)`.
 
@@ -113,7 +125,15 @@ Expected public API result:
 
 ## Result Notes
 
-Fill this in before commit with the exact validation commands and outcomes.
+Partial validation on 2026-05-20:
+
+- `moon fmt` passed.
+- `moon check` passed.
+- `moon test input` passed: 13 tests.
+- `moon check cmd/input` passed.
+- `moon info` passed.
+
+Manual `moon run cmd/input` validation is still pending.
 
 ## Open Questions
 
