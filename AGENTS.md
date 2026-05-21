@@ -31,11 +31,32 @@
   deviation before continuing.
 - Treat private helpers and internal struct fields as design API too. Before
   adding, removing, renaming, or reshaping package-private helpers, parser
-  state, buffers, or transition functions, discuss the intended shape and get
-  agreement unless the change is a small mechanical fix already covered by the
-  active plan.
+  state, buffers, wrappers, transition functions, imports, or native stubs, the
+  agent must stop and get explicit user approval for the intended shape. Do not
+  treat these as small mechanical fixes.
 - When a planned task is completed, update the corresponding plan with
   validation results and public API audit notes before committing that task.
+
+## Design Approval Gate
+
+- Before editing repository files, the agent must stop and discuss if the
+  change requires any new design surface, even if it is private or
+  package-local.
+- This includes new private/public structs, enums, traits, methods, helpers,
+  fields, buffers, parser states, transition functions, wrapper types, package
+  imports, dependencies, C/FFI stubs, native-stub entries, platform-specific
+  files, backend selection changes, timeout/cancellation semantics, raw mode
+  behavior, input decoding, tty opening, fd ownership, or platform I/O
+  behavior.
+- For these cases, the agent must first provide the problem being solved, the
+  proposed shape including new types/helpers/fields/files, why existing code
+  cannot be reused, the expected public API diff including whether `.mbti`
+  should remain unchanged, and the validation plan.
+- The agent must not call `apply_patch`, create files, edit plans, or change
+  code until the user explicitly approves the proposed shape.
+- User phrases such as "try it", "see whether it works", or "verify it"
+  authorize investigation and throwaway experiments only. They do not authorize
+  repository implementation unless the user explicitly says to modify code.
 
 ## Architecture Facts
 
