@@ -13,20 +13,18 @@ let global_sigwinch_watcher : Ref[SigwinchWatcher?] = Ref(None)
 ///|
 #cfg(not(platform="windows"))
 fn sigwinch_watcher() -> SigwinchWatcher raise {
-  match global_sigwinch_watcher.val {
-    Some(watcher) => watcher
-    None => {
-      let (read, write) = @async/pipe.pipe()
-      if install_sigwinch_handler(write.fd()) < 0 {
-        read.close()
-        write.close()
-        @os_error.check_errno("install SIGWINCH handler")
-      }
-      let watcher = SigwinchWatcher::{ read, write }
-      global_sigwinch_watcher.val = Some(watcher)
-      watcher
+  guard global_sigwinch_watcher.val is Some(watcher) else {
+    let (read, write) = @async/pipe.pipe()
+    if install_sigwinch_handler(write.fd()) < 0 {
+      read.close()
+      write.close()
+      @os_error.check_errno("install SIGWINCH handler")
     }
+    let watcher = SigwinchWatcher::{ read, write }
+    global_sigwinch_watcher.val = Some(watcher)
+    watcher
   }
+  watcher
 }
 
 ///|
@@ -34,6 +32,9 @@ fn sigwinch_watcher() -> SigwinchWatcher raise {
 async fn SigwinchWatcher::wait(self : SigwinchWatcher) -> Unit {
   let buf = FixedArray::make(64, b'\x00')
   ignore(self.read.read(buf, max_len=buf.length()))
+  // Drain with raw nonblocking read semantics. moonbitlang/async Reader APIs,
+  // including read and read_some, wait for readiness after EAGAIN instead of
+  // exposing "empty for now"; resize coalescing must stop at that boundary.
   drain_sigwinch_pipe(self.read.fd())
 }
 

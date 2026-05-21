@@ -52,6 +52,11 @@ moonbit_tty_dispatch_previous_sigwinch(
 
 static void
 moonbit_tty_sigwinch_handler(int signo, siginfo_t *info, void *context) {
+  /*
+   * Preserve the interrupted code's errno. The self-pipe write below may
+   * change errno, but signal delivery must not corrupt the caller's pending
+   * syscall error.
+   */
   int saved_errno = errno;
   int fd = (int)moonbit_tty_sigwinch_fd;
   if (fd >= 0) {
@@ -94,6 +99,12 @@ moonbit_tty_install_sigwinch_handler(int32_t fd) {
 MOONBIT_FFI_EXPORT
 void
 moonbit_tty_drain_sigwinch_pipe(int32_t fd) {
+  /*
+   * This is intentionally a raw nonblocking drain. moonbitlang/async Reader
+   * APIs such as read/read_some resume waiting after EAGAIN rather than
+   * exposing "empty for now", while resize notifications should be coalesced
+   * by stopping once the self-pipe is empty.
+   */
   unsigned char buffer[256];
   for (;;) {
     ssize_t n = read(fd, buffer, sizeof(buffer));
