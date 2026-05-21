@@ -12,10 +12,9 @@ import {
 }
 
 // Values
-pub fn isatty(Int) -> Bool raise TtyError
+pub fn[T : Fd] isatty(T) -> Bool raise @os_error.OSError
 
 // Errors
-type TtyError
 
 // Types and methods
 pub struct CursorPosition {
@@ -72,6 +71,11 @@ pub struct WindowSize {
 // Type aliases
 
 // Traits
+pub(open) trait Fd {
+  fn fd(Self) -> Int
+}
+pub impl Fd for Int
+
 pub(open) trait Reader : @io.Reader {
   fn fd(Self) -> Int
   fn close(Self) -> Unit

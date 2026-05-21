@@ -11,9 +11,9 @@ moonbit_tty_isatty(int32_t fd) {
   if (isatty(fd)) {
     return 1;
   }
-  if (errno == EBADF) {
-    return -2;
+  if (errno == 0 || errno == ENOTTY) {
+    return 0;
   }
-  return 0;
+  return -1;
 }
 #endif

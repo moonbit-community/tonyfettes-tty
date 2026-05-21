@@ -137,7 +137,7 @@ async test "tty window size rejects non tty output" {
 ///|
 test "isatty rejects invalid fd" {
   try isatty(-1) catch {
-    InvalidFd(fd) => @debug.assert_eq(fd, -1)
+    @os_error.OSError(_, context~) => @debug.assert_eq(context, "isatty")
   } noraise {
     _ => fail("expected invalid fd error")
   }
