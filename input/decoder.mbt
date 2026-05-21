@@ -173,17 +173,6 @@ async fn read_escape(reader : EventReader, esc_timeout : Int) -> Event {
       reader.unread_byte()
       Key(KeyEvent::new(Escape))
     }
-    _ => read_escape_tail(reader, byte, esc_timeout)
-  }
-}
-
-///|
-async fn read_escape_tail(
-  reader : EventReader,
-  byte : Byte,
-  esc_timeout : Int,
-) -> Event {
-  match byte {
     b'[' => read_csi(reader, esc_timeout~)
     b'O' => read_ss3(reader, esc_timeout~)
     0x20..<0x7f as byte =>
