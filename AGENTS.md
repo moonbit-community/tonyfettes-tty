@@ -26,37 +26,33 @@
 - An active plan should name the goal, target files, public API changes,
   invariants, acceptance criteria, and validation commands before implementation
   expands beyond the current scope.
-- If implementation requires a new concept, helper, module, public item, or
-  behavior not described in the active plan, update the plan or discuss the
-  deviation before continuing.
-- Treat private helpers and internal struct fields as design API too. Before
-  adding, removing, renaming, or reshaping package-private helpers, parser
-  state, buffers, wrappers, transition functions, imports, or native stubs, the
-  agent must stop and get explicit user approval for the intended shape. Do not
-  treat these as small mechanical fixes.
+- If an approved implementation diverges from the active plan, update the plan
+  or discuss the deviation before continuing.
 - When a planned task is completed, update the corresponding plan with
   validation results and public API audit notes before committing that task.
 
 ## Design Approval Gate
 
-- Before editing repository files, the agent must stop and discuss if the
-  change requires any new design surface, even if it is private or
-  package-local.
-- This includes new private/public structs, enums, traits, methods, helpers,
-  fields, buffers, parser states, transition functions, wrapper types, package
-  imports, dependencies, C/FFI stubs, native-stub entries, platform-specific
-  files, backend selection changes, timeout/cancellation semantics, raw mode
-  behavior, input decoding, tty opening, fd ownership, or platform I/O
-  behavior.
-- For these cases, the agent must first provide the problem being solved, the
-  proposed shape including new types/helpers/fields/files, why existing code
-  cannot be reused, the expected public API diff including whether `.mbti`
-  should remain unchanged, and the validation plan.
-- The agent must not call `apply_patch`, create files, edit plans, or change
-  code until the user explicitly approves the proposed shape.
+- Before editing repository files, the agent must stop and get explicit user
+  approval if the change introduces or reshapes any design surface, even when
+  that surface is private or package-local.
+- Design surface includes private/public structs, enums, traits, methods,
+  helpers, fields, buffers, parser states, transition functions, wrapper types,
+  package imports, dependencies, C/FFI stubs, native-stub entries,
+  platform-specific files, backend selection, timeout/cancellation semantics,
+  raw mode behavior, input decoding, tty opening, fd ownership, and platform
+  I/O behavior.
+- The approval request must include the problem being solved, the proposed
+  shape including new types/helpers/fields/files, why existing code cannot be
+  reused, the expected public API diff including whether `.mbti` should remain
+  unchanged, and the validation plan.
+- Until the user approves that shape, the agent must not call `apply_patch`,
+  create files, edit plans, or change code.
 - User phrases such as "try it", "see whether it works", or "verify it"
-  authorize investigation and throwaway experiments only. They do not authorize
-  repository implementation unless the user explicitly says to modify code.
+  authorize investigation and throwaway experiments only. If an experiment
+  needs repository edits, the agent must ask first or keep it outside the repo.
+  These phrases do not authorize repository implementation unless the user
+  explicitly says to modify code.
 
 ## Architecture Facts
 
@@ -94,9 +90,9 @@
   - `moon info`
 - Review any generated `.mbti` diff after `moon info`. Treat `.mbti` changes as
   public API changes, not formatting churn.
-- For demo-only changes under `examples/*`, run `moon check <examples-path>` when that
-  command is available and record manual terminal validation if behavior depends
-  on a real tty.
+- For demo-only changes under `examples/*`, run `moon check <examples-path>`
+  when that command is available and record manual terminal validation if
+  behavior depends on a real tty.
 
 ## Public API Audit
 
