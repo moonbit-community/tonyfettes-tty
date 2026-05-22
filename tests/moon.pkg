@@ -1,0 +1,9 @@
+import {
+  "moonbitlang/async",
+  "moonbitlang/async/process",
+  "moonbit-community/pty",
+  "moonbitlang/core/encoding/utf8",
+  "moonbitlang/core/env",
+} for "test"
+
+supported_targets = "native"
