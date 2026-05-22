@@ -25,6 +25,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Setup MSVC
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Configure Windows C compiler
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: '"MOON_CC=cl.exe" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append'
+
       - name: Install MoonBit
         if: runner.os != 'Windows'
         shell: bash
