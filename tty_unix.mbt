@@ -26,7 +26,7 @@ async fn ControllingTerminal::open() -> ControllingTerminal {
 
 ///|
 #cfg(not(platform="windows"))
-impl @async/io.Reader for ControllingTerminal with _direct_read(
+impl @async/io.Reader for ControllingTerminal with fn _direct_read(
   self,
   buf,
   offset~,
@@ -37,13 +37,13 @@ impl @async/io.Reader for ControllingTerminal with _direct_read(
 
 ///|
 #cfg(not(platform="windows"))
-impl @async/io.Reader for ControllingTerminal with _get_internal_buffer(self) {
+impl @async/io.Reader for ControllingTerminal with fn _get_internal_buffer(self) {
   self.read_buf
 }
 
 ///|
 #cfg(not(platform="windows"))
-impl @async/io.Writer for ControllingTerminal with write_once(
+impl @async/io.Writer for ControllingTerminal with fn write_once(
   self,
   buf,
   offset~,
@@ -54,19 +54,19 @@ impl @async/io.Writer for ControllingTerminal with write_once(
 
 ///|
 #cfg(not(platform="windows"))
-impl Fd for ControllingTerminal with fd(self) {
+impl Fd for ControllingTerminal with fn fd(self) {
   self.raw.fd
 }
 
 ///|
 #cfg(not(platform="windows"))
-impl Reader for ControllingTerminal with close(self) {
+impl Reader for ControllingTerminal with fn close(self) {
   self.raw.close()
 }
 
 ///|
 #cfg(not(platform="windows"))
-impl Writer for ControllingTerminal with close(self) {
+impl Writer for ControllingTerminal with fn close(self) {
   self.raw.close()
 }
 

@@ -17,31 +17,31 @@ pub(open) trait Writer: @async/io.Writer + Fd {
 }
 
 ///|
-pub impl Reader for @async/fs.File with close(self) {
+pub impl Reader for @async/fs.File with fn close(self) {
   @async/fs.File::close(self)
 }
 
 ///|
-pub impl Writer for @async/fs.File with close(self) {
+pub impl Writer for @async/fs.File with fn close(self) {
   @async/fs.File::close(self)
 }
 
 ///|
-pub impl Reader for @async/pipe.PipeRead with close(self) {
+pub impl Reader for @async/pipe.PipeRead with fn close(self) {
   @async/pipe.PipeRead::close(self)
 }
 
 ///|
-pub impl Writer for @async/pipe.PipeWrite with close(self) {
+pub impl Writer for @async/pipe.PipeWrite with fn close(self) {
   @async/pipe.PipeWrite::close(self)
 }
 
 ///|
-pub impl Reader for @async/stdio.Input with close(_) {
+pub impl Reader for @async/stdio.Input with fn close(_) {
   ()
 }
 
 ///|
-pub impl Writer for @async/stdio.Output with close(_) {
+pub impl Writer for @async/stdio.Output with fn close(_) {
   ()
 }

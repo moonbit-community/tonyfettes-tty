@@ -9,6 +9,4 @@ import {
   "rami3l/unicodewidth@0.2.0",
 }
 
-options(
-  "preferred-target": "native",
-)
+preferred_target = "native"

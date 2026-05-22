@@ -6,6 +6,4 @@ import {
   "moonbitlang/async@0.19.1",
 }
 
-options(
-  "preferred-target": "native",
-)
+preferred_target = "native"
