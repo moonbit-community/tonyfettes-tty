@@ -66,6 +66,7 @@ async fn build(name : String) -> String {
 }
 
 ///|
+#cfg(not(platform="windows"))
 async test "isatty" {
   @async.with_task_group() <| group => {
     let artifacts_path = build("isatty")
