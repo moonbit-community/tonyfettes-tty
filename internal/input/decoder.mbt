@@ -201,12 +201,58 @@ async fn read_csi(reader : EventReader, esc_timeout_ms~ : Int) -> Event {
       0x40..<0x7f =>
         break if is_bracketed_paste_start(reader.view()) {
           read_bracketed_paste(reader, esc_timeout_ms~)
+        } else if is_x10_mouse_start(reader.view()) {
+          read_x10_mouse_unknown(reader, esc_timeout_ms~)
         } else {
           parse_csi(reader.view())
         }
       _ => break Input(@public_input.Unknown(reader.view().to_owned()))
     }
   }
+}
+
+///|
+fn is_x10_mouse_start(csi : BytesView) -> Bool {
+  match csi {
+    [Esc, .. b"[M"] => true
+    _ => false
+  }
+}
+
+///|
+async fn read_x10_mouse_unknown(
+  reader : EventReader,
+  esc_timeout_ms~ : Int,
+) -> Event {
+  for _ in 0..<3 {
+    if !read_x10_mouse_field(reader, esc_timeout_ms~) {
+      return Input(@public_input.Unknown(reader.view().to_owned()))
+    }
+  }
+  Input(@public_input.Unknown(reader.view().to_owned()))
+}
+
+///|
+async fn read_x10_mouse_field(
+  reader : EventReader,
+  esc_timeout_ms~ : Int,
+) -> Bool {
+  guard @async.with_timeout_opt(esc_timeout_ms, () => reader.read_byte())
+    is Some(first) else {
+    return false
+  }
+  guard utf8_sequence_length(first) is Some(len) else { return true }
+  for _ in 1..<len {
+    guard @async.with_timeout_opt(esc_timeout_ms, () => reader.read_byte())
+      is Some(byte) else {
+      return false
+    }
+    if !is_utf8_continuation(byte) {
+      reader.unread_byte()
+      return false
+    }
+  }
+  true
 }
 
 ///|
@@ -292,6 +338,10 @@ fn parse_csi(csi : BytesView) -> Event {
           ),
         ),
       )
+    [Esc, b'[', b'<', .. params, b'M'] =>
+      Input(parse_sgr_mouse(csi, params, false))
+    [Esc, b'[', b'<', .. params, b'm'] =>
+      Input(parse_sgr_mouse(csi, params, true))
     [Esc, b'[', .. params, b'~'] => {
       guard parse_csi_params(params) is Some(params) else {
         return Input(@public_input.Unknown(csi.to_owned()))
@@ -389,6 +439,95 @@ fn parse_cursor_position_params(params : Array[Int?]) -> (Int, Int)? {
     [Some(row), Some(col)] if row >= 1 && col >= 1 => Some((row, col))
     _ => None
   }
+}
+
+///|
+fn parse_sgr_mouse(
+  csi : BytesView,
+  params_bytes : BytesView,
+  release : Bool,
+) -> @public_input.InputEvent {
+  guard parse_csi_params(params_bytes) is Some(params) else {
+    return @public_input.Unknown(csi.to_owned())
+  }
+  let parsed = match params {
+    [Some(cb), Some(col), Some(row)] => Some((cb, col, row))
+    [Some(cb), Some(col), Some(row), None] => Some((cb, col, row))
+    _ => None
+  }
+  guard parsed is Some((cb, col, row)) else {
+    return @public_input.Unknown(csi.to_owned())
+  }
+  guard cb >= 0 && row >= 1 && col >= 1 else {
+    return @public_input.Unknown(csi.to_owned())
+  }
+  guard mouse_event_kind_from_cb(cb, release~) is Some(kind) else {
+    return @public_input.Unknown(csi.to_owned())
+  }
+  @public_input.Mouse(
+    @public_input.MouseEvent::new(
+      kind,
+      row,
+      col,
+      modifiers=mouse_modifiers_from_cb(cb),
+    ),
+  )
+}
+
+///|
+fn mouse_event_kind_from_cb(
+  cb : Int,
+  release~ : Bool,
+) -> @public_input.MouseEventKind? {
+  if cb < 0 || cb > 127 {
+    return None
+  }
+  let button = cb & 3
+  let dragging = (cb & 32) != 0
+  let wheel = (cb & 64) != 0
+  if release {
+    if wheel || dragging {
+      return None
+    }
+    match button {
+      0 => Some(@public_input.Release(@public_input.Left))
+      1 => Some(@public_input.Release(@public_input.Middle))
+      2 => Some(@public_input.Release(@public_input.Right))
+      _ => None
+    }
+  } else if wheel {
+    match button {
+      0 => Some(@public_input.Scroll(@public_input.Up))
+      1 => Some(@public_input.Scroll(@public_input.Down))
+      2 => Some(@public_input.Scroll(@public_input.Left))
+      3 => Some(@public_input.Scroll(@public_input.Right))
+      _ => None
+    }
+  } else if dragging {
+    match button {
+      0 => Some(@public_input.Drag(@public_input.Left))
+      1 => Some(@public_input.Drag(@public_input.Middle))
+      2 => Some(@public_input.Drag(@public_input.Right))
+      3 => Some(@public_input.Move)
+      _ => None
+    }
+  } else {
+    match button {
+      0 => Some(@public_input.Press(@public_input.Left))
+      1 => Some(@public_input.Press(@public_input.Middle))
+      2 => Some(@public_input.Press(@public_input.Right))
+      _ => None
+    }
+  }
+}
+
+///|
+fn mouse_modifiers_from_cb(cb : Int) -> @public_input.KeyModifiers {
+  @public_input.KeyModifiers::new(
+    shift=(cb & 4) != 0,
+    alt=(cb & 8) != 0,
+    ctrl=(cb & 16) != 0,
+  )
 }
 
 ///|
