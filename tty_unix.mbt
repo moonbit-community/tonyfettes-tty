@@ -82,6 +82,12 @@ pub async fn Tty::open() -> Tty {
 /// Open the controlling terminal as one coordinated terminal handle.
 #cfg(platform="windows")
 pub async fn Tty::open() -> Tty {
-  let file = @async/fs.open("/dev/tty", mode=ReadWrite)
-  Tty::new(file, file)
+  let input = @async/fs.open("CONIN$", mode=ReadWrite)
+  let output = @async/fs.open("CONOUT$", mode=ReadWrite) catch {
+    error => {
+      input.close()
+      raise error
+    }
+  }
+  Tty::new(input, output)
 }
