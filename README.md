@@ -87,7 +87,7 @@ async fn main {
   tty.hide_cursor()
   tty.set_cursor_position(1, 1)
   tty.bold()
-  tty.set_foreground(@tty/color.Basic(@tty/color.Green))
+  tty.set_foreground(Basic(Green))
   tty.write("hello from tty\r\n")
   tty.reset_style()
   tty.show_cursor()
@@ -103,15 +103,15 @@ async fn main {
     tty.write("press q to quit\r\n")
     while true {
       match tty.read_event() {
-        @tty.Input(@tty/input.Key(key)) =>
+        Input(Key(key)) =>
           match key.code {
             Char('q') => break
             _ => ()
           }
-        @tty.Input(@tty/input.Paste(_)) => ()
-        @tty.Input(@tty/input.Mouse(_)) => ()
-        @tty.Input(@tty/input.Unknown(_)) => ()
-        @tty.Resize(_) => ()
+        Input(Paste(_)) => ()
+        Input(Mouse(_)) => ()
+        Input(Unknown(_)) => ()
+        Resize(_) => ()
       }
     }
   })
