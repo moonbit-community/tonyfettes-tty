@@ -95,6 +95,30 @@
   when that command is available and record manual terminal validation if
   behavior depends on a real tty.
 
+## Release Workflow
+
+- Patch releases only bump the root `moon.mod` `version`; do not change nested
+  example or test module versions unless the release explicitly requires it.
+- Start release branches from the latest `origin/main`, for example
+  `codex/bump-version-0.2.3`.
+- Commit the version bump as `chore: bump version to X.Y.Z` and open a PR titled
+  `[codex] chore: bump version to X.Y.Z`.
+- Before publishing, run:
+  - `moon fmt`
+  - `moon info`
+  - `moon check`
+  - `moon check --target native`
+  - `git diff --check`
+- After the version bump PR is merged, fetch `origin/main` and confirm
+  `moon.mod` contains the release version.
+- Create a signed annotated tag named `vX.Y.Z` with message
+  `release: vX.Y.Z`, then push it to `origin`. The tag push triggers
+  `.github/workflows/publish.yml`.
+- Confirm the `publish-package` GitHub Actions run succeeds. It verifies that
+  the pushed tag matches `moon.mod`, runs `moon check --target native`, and
+  publishes to Mooncakes.
+- Do not move or delete a pushed release tag without explicit user approval.
+
 ## Public API Audit
 
 - Keep parser state, buffers, platform handles, and transition helpers internal
